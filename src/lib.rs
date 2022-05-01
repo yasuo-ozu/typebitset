@@ -1,4 +1,3 @@
-#![feature(log_syntax)]
 use core::fmt;
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
