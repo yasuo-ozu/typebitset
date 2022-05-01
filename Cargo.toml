@@ -1,0 +1,13 @@
+[package]
+name = "typebitset"
+version = "0.1.3"
+authors = ["Yasuo Ozu <yasuo@ozu.email>"]
+license = "MIT"
+edition = "2018"
+description = "Type-level bitset implementation"
+readme = "README.md"
+repository = "https://github.com/yasuo-ozu/typebitset"
+keywords = ["data-structure"]
+categories = ["algorithms", "rust-patterns"]
+
+[dependencies]
