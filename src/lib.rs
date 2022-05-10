@@ -273,10 +273,23 @@ mod test {
 	impl_set_of!(1, 1, 1, 1, 1, 1, 1);
 
 	macro_rules! test_with_number {
-		($n:expr) => {
+		(@run $n:expr) => {
 			let _: FromNum<{ $n * 2 }> = <<FromNum<{ $n }> as ShiftRaising>::Output>::default();
 			let _: FromNum<{ $n * 4 }> =
 				<<<FromNum<{ $n }> as ShiftRaising>::Output as ShiftRaising>::Output>::default();
+			let _: FromNum<{ $n }> = <<FromNum<{ $n * 2 }> as ShiftLowering>::Output>::default();
+			let _: FromNum<{ $n }> =
+				<<<FromNum<{ $n * 4 }> as ShiftLowering>::Output as ShiftLowering>::Output>::default();
+			let _: [(); FromNum<{$n}>::N - $n] = [];
+		};
+		(@ [$($ys:expr,)*]) => {
+			test_with_number!(@run 0usize $(+$ys)*);
+		};
+		(@ [$($ys:expr,)*] $x:expr $(,$xs:expr)*) => {
+
+		};
+		($($xs:expr),*) => {
+			test_and_or!(@ [] [] $($xs),*);
 		};
 	}
 
@@ -308,7 +321,7 @@ mod test {
 		let _: Bit1 = v1 & v2;
 		let _: Cons<Bit1, Cons<Bit1, Bit1>> = v1 | v2;
 		let _v4: <<Bit0 as ShiftRaising>::Output as Push<Bit1>>::Output = Default::default();
-		test_with_number!(10);
+		test_with_number!(1, 2, 4, 8, 16);
 		test_and_or!(1, 2, 4, 8, 16);
 	}
 }
