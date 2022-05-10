@@ -70,7 +70,7 @@ impl Bit for Bit1 {}
 
 /// Generate left shift of the bitset.
 pub trait ShiftRaising {
-	type Output;
+	type Output: Set;
 }
 
 impl ShiftRaising for Bit0 {
@@ -83,14 +83,15 @@ impl ShiftRaising for Bit1 {
 
 impl<B, S> ShiftRaising for Cons<B, S>
 where
-	Cons<B, S>: Set,
+	S: Positive,
+	B: Bit,
 {
 	type Output = Cons<Bit0, Cons<B, S>>;
 }
 
 /// Generate right shift of the bitset.
 pub trait ShiftLowering {
-	type Output;
+	type Output: Set;
 }
 
 impl ShiftLowering for Bit0 {
@@ -103,7 +104,8 @@ impl ShiftLowering for Bit1 {
 
 impl<B, S> ShiftLowering for Cons<B, S>
 where
-	Cons<B, S>: Set,
+	S: Positive,
+	B: Bit,
 {
 	type Output = S;
 }
@@ -221,56 +223,92 @@ impl_binary_op! {
 	Bit1, Bit1, Bit1, Bit1;
 }
 
-// pub trait FromNumImpl<const N: usize> {
-// 	type Output;
-// }
-//
-// pub type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
-//
-// impl FromNumImpl<0> for Bit0 {
-// 	type Output = Bit0;
-// }
-//
-// macro_rules! impl_set_of {
-// 	(@out ) => { $crate::Bit0 };
-// 	(@out 0 $(,$xs:expr)*) => {
-// 		$crate::Cons<$crate::Bit0, impl_set_of!(@out $($xs),*)>
-// 	};
-// 	(@out 1 $(,$xs:expr)*) => {
-// 		$crate::Cons<$crate::Bit1, impl_set_of!(@out $($xs),*)>
-// 	};
-// 	(@imp $($xs:expr),*) => {
-// 		impl FromNumImpl<{impl_set_of!(@bittonum $($xs),*)}> for Bit0 {
-// 			type Output = impl_set_of!(@out $($xs),*);
-// 		}
-// 	};
-// 	(@bittonum ) => {0usize};
-// 	(@bittonum $x0:expr $(,$xs:expr)*) => {
-// 		2usize * (impl_set_of!(@bittonum $($xs),*)) + $x0
-// 	};
-// 	(@ $($ys:expr),* ; ) => {
-// 		impl_set_of!(@imp $($ys,)* 1);
-// 	};
-// 	(@ $($ys:expr),* ; 1 $(,$xs:expr)*) => {
-// 		log_syntax!(@ $($ys,)* 1 ; $($xs),*);
-// 		impl_set_of!(@ $($ys,)* 1 ; $($xs),*);
-// 		impl_set_of!(@ $($ys,)* 0 ; $($xs),*);
-// 	};
-// 	() => {
-// 		impl_set_of!(@imp );
-// 	};
-// 	(1 $(,$xs:expr)*) => {
-// 		log_syntax!($($xs),*);
-// 		impl_set_of!(@ ; 1 $(,$xs)*);
-// 		impl_set_of!($($xs),*);
-// 	}
-// }
+#[cfg(test)]
+mod test {
+	use super::*;
 
-#[test]
-fn test() {
-	let v1: Cons<Bit1, Cons<Bit0, Bit1>> = Default::default();
-	let v2: Cons<Bit1, Bit1> = Default::default();
-	let _: Bit1 = v1 & v2;
-	let _: Cons<Bit1, Cons<Bit1, Bit1>> = v1 | v2;
-	let _v4: <<Bit0 as ShiftRaising>::Output as Push<Bit1>>::Output = Default::default();
+	trait FromNumImpl<const N: usize> {
+		type Output;
+	}
+
+	type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
+
+	macro_rules! impl_set_of {
+		(@out ) => { $crate::Bit0 };
+		(@out 1) => { $crate::Bit1 };
+		(@out 0 $(,$xs:tt)+) => {
+			$crate::Cons<$crate::Bit0, impl_set_of!(@out $($xs),+)>
+		};
+		(@out 1 $(,$xs:tt)+) => {
+			$crate::Cons<$crate::Bit1, impl_set_of!(@out $($xs),+)>
+		};
+		(@imp $($xs:tt),*) => {
+			impl FromNumImpl<{impl_set_of!(@bittonum $($xs),*)}> for Bit0 {
+				type Output = impl_set_of!(@out $($xs),*);
+			}
+		};
+		(@bittonum ) => {0usize};
+		(@bittonum $x0:tt $(,$xs:tt)*) => {
+			2usize * (impl_set_of!(@bittonum $($xs),*)) + $x0
+		};
+		(@i [$($ys:tt),*] ) => {
+			impl_set_of!(@imp $($ys),*);
+		};
+		(@i [$($ys:tt),*] 1) => {
+			impl_set_of!(@i [$($ys,)* 1] );
+		};
+		(@i [$($ys:tt),*] 1 $(,$xs:tt)+) => {
+			impl_set_of!(@i [$($ys,)* 1] $($xs),+);
+			impl_set_of!(@i [$($ys,)* 0] $($xs),+);
+		};
+		() => {
+			impl_set_of!(@imp );
+		};
+		(1 $(,$xs:tt)*) => {
+			impl_set_of!(@i [] 1 $(,$xs)*);
+			impl_set_of!($($xs),*);
+		}
+	}
+
+	impl_set_of!(1, 1, 1, 1, 1, 1, 1);
+
+	macro_rules! test_with_number {
+		($n:expr) => {
+			let _: FromNum<{ $n * 2 }> = <<FromNum<{ $n }> as ShiftRaising>::Output>::default();
+			let _: FromNum<{ $n * 4 }> =
+				<<<FromNum<{ $n }> as ShiftRaising>::Output as ShiftRaising>::Output>::default();
+		};
+	}
+
+	macro_rules! test_and_or {
+		(@run $a: expr, $b: expr) => {
+			let _: FromNum<{ $a & $b }> =
+				<<FromNum<{ $a }> as BitAnd<FromNum<{$b}>>>::Output as Default>::default();
+			let _: FromNum<{ $a | $b }> =
+				<<FromNum<{ $a }> as BitOr<FromNum<{$b}>>>::Output as Default>::default();
+		};
+		(@ [$($ys: expr),*] [$($zs: expr),*]) => {
+			test_and_or!(@run 0usize $(+ $ys)*, 0usize $(+ $zs)*);
+		};
+		(@ [$($ys: expr),*] [$($zs: expr),*] $x: expr $(,$xs: expr)*) => {
+			test_and_or!(@ [$($ys),*] [$($zs),*] $($xs),*);
+			test_and_or!(@ [$x $(,$ys)*] [$($zs),*] $($xs),*);
+			test_and_or!(@ [$($ys),*] [$x $(,$zs)*] $($xs),*);
+			test_and_or!(@ [$x $(,$ys)*] [$x $(,$zs)*] $($xs),*);
+		};
+		($($xs:expr),*) => {
+			test_and_or!(@ [] [] $($xs),*);
+		};
+	}
+
+	#[test]
+	fn test() {
+		let v1: Cons<Bit1, Cons<Bit0, Bit1>> = Default::default();
+		let v2: Cons<Bit1, Bit1> = Default::default();
+		let _: Bit1 = v1 & v2;
+		let _: Cons<Bit1, Cons<Bit1, Bit1>> = v1 | v2;
+		let _v4: <<Bit0 as ShiftRaising>::Output as Push<Bit1>>::Output = Default::default();
+		test_with_number!(10);
+		test_and_or!(1, 2, 4, 8, 16);
+	}
 }
