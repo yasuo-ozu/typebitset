@@ -4,7 +4,9 @@ use core::hash::Hash;
 use core::marker::PhantomData;
 use core::ops::{BitAnd, BitOr};
 
-/// Implementation of bitset. See [`Set`]
+pub mod list;
+
+/// Implementation of bitset. See [`Value`]
 #[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Hash)]
 pub struct Cons<B, S>(PhantomData<(B, S)>);
 
@@ -21,7 +23,7 @@ impl<B: Display + Default, S: Display + Default> Display for Cons<B, S> {
 
 /// Represents a bitset represented as zero.
 /// Only if a bitset equals to [`Bit0`], the bitset means zero.
-/// See [`Set`] for details.
+/// See [`Value`] for details.
 #[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Hash)]
 pub struct Bit0;
 impl Display for Bit0 {
@@ -31,7 +33,7 @@ impl Display for Bit0 {
 }
 
 /// Represents a bitset represented as one.
-/// See [`Set`] for details.
+/// See [`Value`] for details.
 #[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Hash)]
 pub struct Bit1;
 impl Display for Bit1 {
@@ -41,44 +43,51 @@ impl Display for Bit1 {
 }
 
 /// The main trait represents a bitset.
-pub trait Set: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
+pub trait Value: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
 }
 
-impl Set for Bit0 {
+impl Value for Bit0 {
 	const N: usize = 0;
 }
 
-impl Set for Bit1 {
+impl Value for Bit1 {
 	const N: usize = 1;
 }
 
-impl<B: Bit, S: Positive> Set for Cons<B, S> {
-	const N: usize = <S as Set>::N * 2 + 1;
+impl<B: Bit, S: Positive> Value for Cons<B, S> {
+	const N: usize = <S as Value>::N * 2 + 1;
 }
 
 /// A trait implemented if the bitset is positive (not zero).
-pub trait Positive: Set {}
+pub trait Positive: Value {}
 impl Positive for Bit1 {}
 impl<B: Bit, S: Positive> Positive for Cons<B, S> {}
 
 /// A trait which represents a bit.
-pub trait Bit: Set {}
+pub trait Bit: Value {}
 impl Bit for Bit0 {}
 impl Bit for Bit1 {}
 
 /// Generate left shift of the bitset.
 pub trait ShiftRaising {
-	type Output: Set;
+	type Output: Value;
+	fn shift_raising(self) -> Self::Output;
 }
 
 impl ShiftRaising for Bit0 {
 	type Output = Bit0;
+	fn shift_raising(self) -> Self::Output {
+		Bit0
+	}
 }
 
 impl ShiftRaising for Bit1 {
 	type Output = Cons<Bit0, Bit1>;
+	fn shift_raising(self) -> Self::Output {
+		Cons(PhantomData)
+	}
 }
 
 impl<B, S> ShiftRaising for Cons<B, S>
@@ -87,19 +96,29 @@ where
 	B: Bit,
 {
 	type Output = Cons<Bit0, Cons<B, S>>;
+	fn shift_raising(self) -> Self::Output {
+		Cons(PhantomData)
+	}
 }
 
 /// Generate right shift of the bitset.
 pub trait ShiftLowering {
-	type Output: Set;
+	type Output: Value;
+	fn shift_lowering(self) -> Self::Output;
 }
 
 impl ShiftLowering for Bit0 {
 	type Output = Bit0;
+	fn shift_lowering(self) -> Self::Output {
+		Bit0
+	}
 }
 
 impl ShiftLowering for Bit1 {
 	type Output = Bit0;
+	fn shift_lowering(self) -> Self::Output {
+		Bit0
+	}
 }
 
 impl<B, S> ShiftLowering for Cons<B, S>
@@ -108,11 +127,14 @@ where
 	B: Bit,
 {
 	type Output = S;
+	fn shift_lowering(self) -> Self::Output {
+		<S as Default>::default()
+	}
 }
 
 /// Make left shift of the bitset and use give bit as the LSB.
 pub trait Push<B> {
-	type Output: Set;
+	type Output: Value;
 }
 
 impl<B: Bit> Push<B> for Bit0 {
@@ -146,7 +168,7 @@ macro_rules! impl_binary_op {
 
 			impl<Sa> BitAnd<Cons<$bita, Sa>> for $bitb
 			where
-				Cons<$bita, Sa>: Set
+				Cons<$bita, Sa>: Value
 			{
 				type Output = $bito_and;
 				fn bitand(self, _: Cons<$bita, Sa>) -> Self::Output {
@@ -156,7 +178,7 @@ macro_rules! impl_binary_op {
 
 			impl<Sb> BitAnd<$bita> for Cons<$bitb, Sb>
 			where
-				Cons<$bitb, Sb>: Set
+				Cons<$bitb, Sb>: Value
 			{
 				type Output = $bito_and;
 				fn bitand(self, _: $bita) -> Self::Output {
@@ -166,7 +188,7 @@ macro_rules! impl_binary_op {
 
 			impl<Sa> BitOr<Cons<$bita, Sa>> for $bitb
 			where
-				Cons<$bita, Sa>: Set,
+				Cons<$bita, Sa>: Value,
 				Sa: Push<$bito_or>,
 			{
 				type Output = <Sa as Push<$bito_or>>::Output;
@@ -177,7 +199,7 @@ macro_rules! impl_binary_op {
 
 			impl<Sb> BitOr<$bita> for Cons<$bitb, Sb>
 			where
-				Cons<$bitb, Sb>: Set,
+				Cons<$bitb, Sb>: Value,
 				Sb: Push<$bito_or>,
 			{
 				type Output = <Sb as Push<$bito_or>>::Output;
@@ -188,8 +210,8 @@ macro_rules! impl_binary_op {
 
 			impl<Sa, Sb> BitAnd<Cons<$bita, Sa>> for Cons<$bitb, Sb>
 			where
-				Cons<$bita, Sa>: Set,
-				Cons<$bitb, Sb>: Set,
+				Cons<$bita, Sa>: Value,
+				Cons<$bitb, Sb>: Value,
 				Sb: BitAnd<Sa>,
 				<Sb as BitAnd<Sa>>::Output: Push<$bito_and>,
 			{
@@ -201,8 +223,8 @@ macro_rules! impl_binary_op {
 
 			impl<Sa, Sb> BitOr<Cons<$bita, Sa>> for Cons<$bitb, Sb>
 			where
-				Cons<$bita, Sa>: Set,
-				Cons<$bitb, Sb>: Set,
+				Cons<$bita, Sa>: Value,
+				Cons<$bitb, Sb>: Value,
 				Sb: BitOr<Sa>,
 				<Sb as BitOr<Sa>>::Output: Push<$bito_or>,
 			{
@@ -223,54 +245,54 @@ impl_binary_op! {
 	Bit1, Bit1, Bit1, Bit1;
 }
 
+pub trait FromNumImpl<const N: usize> {
+	type Output;
+}
+
+pub type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
+
+macro_rules! impl_set_of {
+	(@out ) => { $crate::Bit0 };
+	(@out 1) => { $crate::Bit1 };
+	(@out 0 $(,$xs:tt)+) => {
+		$crate::Cons<$crate::Bit0, impl_set_of!(@out $($xs),+)>
+	};
+	(@out 1 $(,$xs:tt)+) => {
+		$crate::Cons<$crate::Bit1, impl_set_of!(@out $($xs),+)>
+	};
+	(@imp $($xs:tt),*) => {
+		impl FromNumImpl<{impl_set_of!(@bittonum $($xs),*)}> for Bit0 {
+			type Output = impl_set_of!(@out $($xs),*);
+		}
+	};
+	(@bittonum ) => {0usize};
+	(@bittonum $x0:tt $(,$xs:tt)*) => {
+		2usize * (impl_set_of!(@bittonum $($xs),*)) + $x0
+	};
+	(@i [$($ys:tt),*] ) => {
+		impl_set_of!(@imp $($ys),*);
+	};
+	(@i [$($ys:tt),*] 1) => {
+		impl_set_of!(@i [$($ys,)* 1] );
+	};
+	(@i [$($ys:tt),*] 1 $(,$xs:tt)+) => {
+		impl_set_of!(@i [$($ys,)* 1] $($xs),+);
+		impl_set_of!(@i [$($ys,)* 0] $($xs),+);
+	};
+	() => {
+		impl_set_of!(@imp );
+	};
+	(1 $(,$xs:tt)*) => {
+		impl_set_of!(@i [] 1 $(,$xs)*);
+		impl_set_of!($($xs),*);
+	}
+}
+
+impl_set_of!(1, 1, 1, 1, 1, 1, 1);
+
 #[cfg(test)]
 mod test {
 	use super::*;
-
-	trait FromNumImpl<const N: usize> {
-		type Output;
-	}
-
-	type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
-
-	macro_rules! impl_set_of {
-		(@out ) => { $crate::Bit0 };
-		(@out 1) => { $crate::Bit1 };
-		(@out 0 $(,$xs:tt)+) => {
-			$crate::Cons<$crate::Bit0, impl_set_of!(@out $($xs),+)>
-		};
-		(@out 1 $(,$xs:tt)+) => {
-			$crate::Cons<$crate::Bit1, impl_set_of!(@out $($xs),+)>
-		};
-		(@imp $($xs:tt),*) => {
-			impl FromNumImpl<{impl_set_of!(@bittonum $($xs),*)}> for Bit0 {
-				type Output = impl_set_of!(@out $($xs),*);
-			}
-		};
-		(@bittonum ) => {0usize};
-		(@bittonum $x0:tt $(,$xs:tt)*) => {
-			2usize * (impl_set_of!(@bittonum $($xs),*)) + $x0
-		};
-		(@i [$($ys:tt),*] ) => {
-			impl_set_of!(@imp $($ys),*);
-		};
-		(@i [$($ys:tt),*] 1) => {
-			impl_set_of!(@i [$($ys,)* 1] );
-		};
-		(@i [$($ys:tt),*] 1 $(,$xs:tt)+) => {
-			impl_set_of!(@i [$($ys,)* 1] $($xs),+);
-			impl_set_of!(@i [$($ys,)* 0] $($xs),+);
-		};
-		() => {
-			impl_set_of!(@imp );
-		};
-		(1 $(,$xs:tt)*) => {
-			impl_set_of!(@i [] 1 $(,$xs)*);
-			impl_set_of!($($xs),*);
-		}
-	}
-
-	impl_set_of!(1, 1, 1, 1, 1, 1, 1);
 
 	macro_rules! test_with_number {
 		(@run $n:expr) => {
@@ -321,6 +343,9 @@ mod test {
 		let _: Bit1 = v1 & v2;
 		let _: Cons<Bit1, Cons<Bit1, Bit1>> = v1 | v2;
 		let _v4: <<Bit0 as ShiftRaising>::Output as Push<Bit1>>::Output = Default::default();
+		let _: (FromNum<6>, FromNum<12>) = <<(FromNum<6>, FromNum<8>) as list::BitOrAll<
+			FromNum<4>,
+		>>::Output as Default>::default();
 		test_with_number!(1, 2, 4, 8, 16);
 		test_and_or!(1, 2, 4, 8, 16);
 	}
