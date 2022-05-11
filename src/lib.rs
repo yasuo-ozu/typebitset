@@ -336,6 +336,24 @@ mod test {
 		};
 	}
 
+	macro_rules! if_impl_trait {
+		($t:ty : $tr:path) => {{
+			trait DoesNotImpl {
+				const IMPLS: bool = false;
+			}
+			impl<T> DoesNotImpl for T {}
+			struct Wrapper<T>(PhantomData<T>);
+			#[allow(dead_code)]
+			impl<T> Wrapper<T>
+			where
+				T: $tr,
+			{
+				const IMPLS: bool = true;
+			}
+			<Wrapper<$t>>::IMPLS
+		}};
+	}
+
 	#[test]
 	fn test() {
 		let v1: Cons<Bit1, Cons<Bit0, Bit1>> = Default::default();
@@ -348,5 +366,10 @@ mod test {
 		>>::Output as Default>::default();
 		test_with_number!(1, 2, 4, 8, 16);
 		test_and_or!(1, 2, 4, 8, 16);
+
+		assert!(if_impl_trait!((FromNum<3>, FromNum<3>): list::SameList<FromNum<3>>));
+		assert!(!if_impl_trait!((FromNum<4>, FromNum<3>): list::SameList<FromNum<3>>));
+		assert!(if_impl_trait!((FromNum<3>, FromNum<1>): list::PositiveAll));
+		assert!(!if_impl_trait!((FromNum<0>, FromNum<1>): list::PositiveAll));
 	}
 }
