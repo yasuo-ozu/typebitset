@@ -149,6 +149,65 @@ impl<B0: Bit, B: Bit, S: Positive> Push<B0> for Cons<B, S> {
 	type Output = Cons<B0, Cons<B, S>>;
 }
 
+/// Replacing Bit1 in Self with S.
+/// S should be `Positive`.
+///
+/// ```
+/// # use typebitset::{FromNum, ReplaceOnes};
+/// let _: FromNum<0b1101100> = <<FromNum<0b10100> as ReplaceOnes<FromNum<0b11>>>::Output as Default>::default();
+/// let _: FromNum<0b11100> = <<FromNum<0b100> as ReplaceOnes<FromNum<0b111>>>::Output as Default>::default();
+/// ```
+pub trait ReplaceOnes<S> {
+	type Output: Value;
+}
+
+impl<S> ReplaceOnes<S> for Bit0 {
+	type Output = Bit0;
+}
+
+impl<S: Value> ReplaceOnes<S> for Bit1 {
+	type Output = S;
+}
+
+impl<S, S0: ReplaceOnes<S>> ReplaceOnes<S> for Cons<Bit0, S0>
+where
+	<S0 as ReplaceOnes<S>>::Output: Positive,
+{
+	type Output = Cons<Bit0, <S0 as ReplaceOnes<S>>::Output>;
+}
+
+impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S>> ReplaceOnes<S>
+	for Cons<Bit1, S0>
+{
+	type Output = <S as PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>>::Output;
+}
+
+/// Concat bitset S after the MSB of Self.
+///
+/// ```
+/// # use typebitset::{FromNum, PushAfterMsb};
+/// let _: FromNum<0b1101> = <<FromNum<0b0> as PushAfterMsb<FromNum<0b1101>>>::Output as Default>::default();
+/// let _: FromNum<0b1101100> = <<FromNum<0b100> as PushAfterMsb<FromNum<0b1101>>>::Output as Default>::default();
+/// ```
+pub trait PushAfterMsb<S> {
+	type Output: Value;
+}
+
+impl<S: Value> PushAfterMsb<S> for Bit0 {
+	type Output = S;
+}
+
+impl<S: Positive> PushAfterMsb<S> for Bit1 {
+	type Output = Cons<Bit1, S>;
+}
+
+impl<B: Bit, S: Positive, S0: PushAfterMsb<S>> PushAfterMsb<S> for Cons<B, S0>
+where
+	<S0 as PushAfterMsb<S>>::Output: Positive,
+{
+	type Output = Cons<B, <S0 as PushAfterMsb<S>>::Output>;
+}
+
 macro_rules! impl_binary_op {
 	($($bita:ident, $bitb:ident, $bito_and:ident, $bito_or:ident;)*) => {
 		$(
