@@ -134,14 +134,47 @@ pub trait ShiftLoweringAll: RecList {
 	fn shift_lowering_all(self) -> Self::Output;
 }
 
+/// Apply [`Push`] to the all items in the list.
+///
+/// ```
+/// # use typebitset::{FromNum, Bit1};
+/// # use typebitset::list::PushAll;
+/// let _: (FromNum<0b11>, FromNum<0b101>) = <
+/// 	<
+/// 		(FromNum<0b1>,FromNum<0b10>) as PushAll<Bit1>
+/// 	>::Output as Default
+/// >::default();
+/// ```
 pub trait PushAll<B>: RecList {
 	type Output: LengthSame<Self>;
 }
 
+/// Apply [`PushAfterMsb`] to the all items in the list.
+///
+/// ```
+/// # use typebitset::{FromNum, Bit1};
+/// # use typebitset::list::PushAfterMsbAll;
+/// let _: (FromNum<0b11>, FromNum<0b110>) = <
+/// 	<
+/// 		(FromNum<0b1>,FromNum<0b10>) as PushAfterMsbAll<Bit1>
+/// 	>::Output as Default
+/// >::default();
+/// ```
 pub trait PushAfterMsbAll<B>: RecList {
 	type Output: LengthSame<Self>;
 }
 
+/// Apply [`PushAfterMsb`] to the all items in the list.
+///
+/// ```
+/// # use typebitset::{FromNum, Bit1};
+/// # use typebitset::list::PushAfterMsbAll;
+/// let _: (FromNum<0b11>, FromNum<0b110>) = <
+/// 	<
+/// 		(FromNum<0b1>,FromNum<0b10>) as PushAfterMsbAll<Bit1>
+/// 	>::Output as Default
+/// >::default();
+/// ```
 pub trait ReplaceOnesAll<S>: RecList {
 	type Output: LengthSame<Self>;
 }

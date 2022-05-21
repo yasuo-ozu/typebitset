@@ -46,6 +46,10 @@ impl Display for Bit1 {
 pub trait Value: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
+
+	fn as_usize(&self) -> usize {
+		Self::N
+	}
 }
 
 impl Value for Bit0 {
@@ -57,10 +61,49 @@ impl Value for Bit1 {
 }
 
 impl<B: Bit, S: Positive> Value for Cons<B, S> {
-	const N: usize = <S as Value>::N * 2 + 1;
+	const N: usize = <S as Value>::N * 2 + <B as Value>::N;
 }
 
+macro_rules! value_from {
+	([$($par:ident: $type:ident),*] $obj:ident) => {
+		impl<$($par : $type),*> From<$obj<$($par),*>> for usize
+		{
+			fn from(_: $obj<$($par),*>) -> usize {
+				<$obj<$($par),*>>::N
+			}
+		}
+
+		impl<$($par : $type),*> $obj<$($par),*>
+		{
+			const N: usize = <Self as Value>::N;
+			pub fn as_usize(&self) -> usize {
+				Self::N
+			}
+		}
+	};
+}
+
+value_from!([] Bit0);
+value_from!([] Bit1);
+value_from!([B: Bit, S: Positive] Cons);
+
 /// A trait implemented if the bitset is positive (not zero).
+///
+/// ```
+/// # use typebitset::{FromNum, Positive};
+/// fn test<T: Positive>() {}
+/// test::<FromNum<1>>();
+/// test::<FromNum<2>>();
+/// test::<FromNum<3>>();
+/// ```
+///
+/// ```fail
+/// # use typebitset::{FromNum, Positive};
+/// fn test<T: Positive>() {}
+///
+/// // Cannot compile
+/// test::<FromNum<0>>();
+/// ```
 pub trait Positive: Value {}
 impl Positive for Bit1 {}
 impl<B: Bit, S: Positive> Positive for Cons<B, S> {}
@@ -71,6 +114,16 @@ impl Bit for Bit0 {}
 impl Bit for Bit1 {}
 
 /// Generate left shift of the bitset.
+///
+/// ```
+/// # use typebitset::{FromNum, ShiftRaising};
+/// let a: FromNum<0b1010> = <
+/// 	<
+/// 		FromNum<0b101> as ShiftRaising
+/// 	>::Output as Default
+/// >::default();
+/// assert_eq!(a.as_usize(), 0b1010);
+/// ```
 pub trait ShiftRaising {
 	type Output: Value;
 	fn shift_raising(self) -> Self::Output;
@@ -102,6 +155,16 @@ where
 }
 
 /// Generate right shift of the bitset.
+///
+/// ```
+/// # use typebitset::{FromNum, ShiftLowering};
+/// let a: FromNum<0b101> = <
+/// 	<
+/// 		FromNum<0b1010> as ShiftLowering
+/// 	>::Output as Default
+/// >::default();
+/// assert_eq!(a.as_usize(), 0b101);
+/// ```
 pub trait ShiftLowering {
 	type Output: Value;
 	fn shift_lowering(self) -> Self::Output;
@@ -133,6 +196,16 @@ where
 }
 
 /// Make left shift of the bitset and use give bit as the LSB.
+///
+/// ```
+/// # use typebitset::{FromNum, ShiftRaising};
+/// let a: FromNum<0b1010> = <
+/// 	<
+/// 		FromNum<0b101> as ShiftRaising
+/// 	>::Output as Default
+/// >::default();
+/// assert_eq!(a.as_usize(), 0b1010);
+/// ```
 pub trait Push<B> {
 	type Output: Value;
 }
@@ -150,12 +223,22 @@ impl<B0: Bit, B: Bit, S: Positive> Push<B0> for Cons<B, S> {
 }
 
 /// Replacing Bit1 in Self with S.
-/// S should be `Positive`.
+/// S should be [`Positive`].
 ///
 /// ```
 /// # use typebitset::{FromNum, ReplaceOnes};
-/// let _: FromNum<0b1101100> = <<FromNum<0b10100> as ReplaceOnes<FromNum<0b11>>>::Output as Default>::default();
-/// let _: FromNum<0b11100> = <<FromNum<0b100> as ReplaceOnes<FromNum<0b111>>>::Output as Default>::default();
+/// let a: FromNum<0b1101100> = <
+/// 	<
+/// 		FromNum<0b10100> as ReplaceOnes<FromNum<0b11>>
+/// 	>::Output as Default
+/// >::default();
+/// let b: FromNum<0b11100> = <
+/// 	<
+/// 		FromNum<0b100> as ReplaceOnes<FromNum<0b111>>
+/// 	>::Output as Default
+/// >::default();
+/// assert_eq!(a.as_usize(), 0b1101100);
+/// assert_eq!(b.as_usize(), 0b11100);
 /// ```
 pub trait ReplaceOnes<S> {
 	type Output: Value;
@@ -186,8 +269,19 @@ impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S>> Replac
 ///
 /// ```
 /// # use typebitset::{FromNum, PushAfterMsb};
-/// let _: FromNum<0b1101> = <<FromNum<0b0> as PushAfterMsb<FromNum<0b1101>>>::Output as Default>::default();
-/// let _: FromNum<0b1101100> = <<FromNum<0b100> as PushAfterMsb<FromNum<0b1101>>>::Output as Default>::default();
+/// let a: FromNum<0b1101> = <
+/// 	<
+/// 		FromNum<0b0> as PushAfterMsb<FromNum<0b1101>>
+/// 	>::Output as Default
+/// >::default();
+/// let b: FromNum<0b1101100> = <
+/// 	<
+/// 		FromNum<0b100> as PushAfterMsb<FromNum<0b1101>>
+/// 	>::Output as Default
+/// >::default();
+/// assert_eq!(<FromNum<0b1101> as Default>::default().as_usize(), 0b1101);
+/// assert_eq!(a.as_usize(), 0b1101);
+/// assert_eq!(b.as_usize(), 0b1101100);
 /// ```
 pub trait PushAfterMsb<S> {
 	type Output: Value;
@@ -306,7 +400,7 @@ impl_binary_op! {
 
 #[doc(hidden)]
 pub trait FromNumImpl<const N: usize> {
-	type Output;
+	type Output: Value;
 }
 
 pub type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
@@ -362,16 +456,17 @@ mod test {
 			let _: FromNum<{ $n }> = <<FromNum<{ $n * 2 }> as ShiftLowering>::Output>::default();
 			let _: FromNum<{ $n }> =
 				<<<FromNum<{ $n * 4 }> as ShiftLowering>::Output as ShiftLowering>::Output>::default();
-			let _: [(); FromNum<{$n}>::N - $n] = [];
+			let _: [(); <FromNum<{$n}>>::N - $n] = [];
 		};
-		(@ [$($ys:expr,)*]) => {
+		(@ [$($ys:expr),*]) => {
 			test_with_number!(@run 0usize $(+$ys)*);
 		};
-		(@ [$($ys:expr,)*] $x:expr $(,$xs:expr)*) => {
-
+		(@ [$($ys:expr),*] $x:expr $(,$xs:expr)*) => {
+			test_with_number!(@[$($ys),*]$($xs),*);
+			test_with_number!(@[$($ys,)*$x]$($xs),*);
 		};
 		($($xs:expr),*) => {
-			test_and_or!(@ [] [] $($xs),*);
+			test_with_number!(@ [] $($xs),*);
 		};
 	}
 
