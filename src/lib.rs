@@ -304,6 +304,7 @@ impl_binary_op! {
 	Bit1, Bit1, Bit1, Bit1;
 }
 
+#[doc(hidden)]
 pub trait FromNumImpl<const N: usize> {
 	type Output;
 }
@@ -426,8 +427,8 @@ mod test {
 		test_with_number!(1, 2, 4, 8, 16);
 		test_and_or!(1, 2, 4, 8, 16);
 
-		assert!(if_impl_trait!((FromNum<3>, FromNum<3>): list::SameList<FromNum<3>>));
-		assert!(!if_impl_trait!((FromNum<4>, FromNum<3>): list::SameList<FromNum<3>>));
+		assert!(if_impl_trait!((FromNum<3>, FromNum<3>): list::SameList));
+		assert!(!if_impl_trait!((FromNum<4>, FromNum<3>): list::SameList));
 		assert!(if_impl_trait!((FromNum<3>, FromNum<1>): list::PositiveAll));
 		assert!(!if_impl_trait!((FromNum<0>, FromNum<1>): list::PositiveAll));
 	}
