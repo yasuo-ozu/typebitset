@@ -1,4 +1,4 @@
-use crate::{Bit, Bit0, Bit1, Cons, Positive, ShiftLowering, ShiftRaising};
+use crate::{Bit, Bit0, Bit1, Cons, Positive, ShiftLowering, ShiftRaising, Value};
 use core::ops::{BitAnd, BitOr};
 
 /// Represents a recursive list of [`Value`].
@@ -32,8 +32,18 @@ pub trait ShiftLoweringAll: RecList {
 	fn shift_lowering_all(self) -> Self::Output;
 }
 
+pub trait BitAndFold: RecList {
+	type Output: Value;
+	fn bitand_fold(self) -> Self::Output;
+}
+
+pub trait BitOrFold: RecList {
+	type Output: Value;
+	fn bitor_fold(self) -> Self::Output;
+}
+
 macro_rules! impl_all {
-	(@ [$($param0:ident),*] $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
+	(@all [$($param0:ident),*] $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param0,)*$($param: $tparam),*> $trait<$($param0),*> for $obj
 		where
 			$obj: $inner_trait<$($param0),*>,
@@ -56,6 +66,26 @@ macro_rules! impl_all {
 			}
 		}
 	};
+	(@fold $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
+		impl<$($param: $tparam),*> $trait for $obj
+		{
+			type Output = $obj;
+			fn $func(self) -> Self::Output {
+				Default::default()
+			}
+		}
+		impl<$($param: $tparam,)* A> $trait for ($obj, A)
+		where
+			$obj: $inner_trait<<A as $trait>::Output>,
+			A: $trait,
+			<$obj as $inner_trait<<A as $trait>::Output>>::Output: Value,
+		{
+			type Output = <$obj as $inner_trait<<A as $trait>::Output>>::Output;
+			fn $func(self) -> Self::Output {
+				Default::default()
+			}
+		}
+	};
 	([$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param: $tparam),*> RecList for $obj {
 			const LEN: usize = 1;
@@ -67,20 +97,12 @@ macro_rules! impl_all {
 		impl<$($param: $tparam),*> SameList<$obj> for $obj {}
 		impl<A: SameList<$obj>$(,$param: $tparam)*> SameList<$obj> for ($obj, A) {}
 
-		// impl<$($param: $tparam),*> PositiveAll for $($obj)+
-		// where
-		// 	$($obj)+: Positive
-		// {}
-
-		// impl<A: PositiveAll$(,$param: $tparam)*> PositiveAll for ($($obj)+, A)
-		// where
-		// 	$($obj)+: Positive
-		// {}
-
-		impl_all!(@ [S] BitAndAll, BitAnd, bitand_all [$($param: $tparam),*] $obj);
-		impl_all!(@ [S] BitOrAll, BitOr, bitor_all [$($param: $tparam),*] $obj);
-		impl_all!(@ [] ShiftRaisingAll, ShiftRaising, shift_raising_all [$($param: $tparam),*] $obj);
-		impl_all!(@ [] ShiftLoweringAll, ShiftLowering, shift_lowering_all [$($param: $tparam),*] $obj);
+		impl_all!(@all [S] BitAndAll, BitAnd, bitand_all [$($param: $tparam),*] $obj);
+		impl_all!(@all [S] BitOrAll, BitOr, bitor_all [$($param: $tparam),*] $obj);
+		impl_all!(@all [] ShiftRaisingAll, ShiftRaising, shift_raising_all [$($param: $tparam),*] $obj);
+		impl_all!(@all [] ShiftLoweringAll, ShiftLowering, shift_lowering_all [$($param: $tparam),*] $obj);
+		impl_all!(@fold BitAndFold, BitAnd, bitand_fold [$($param: $tparam),*] $obj);
+		impl_all!(@fold BitOrFold, BitOr, bitor_fold [$($param: $tparam),*] $obj);
 	};
 }
 
