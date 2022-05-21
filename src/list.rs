@@ -1,7 +1,16 @@
-use crate::{Bit, Bit0, Bit1, Cons, Positive, ShiftLowering, ShiftRaising, Value};
+use crate::{
+	Bit, Bit0, Bit1, Cons, Positive, Push, PushAfterMsb, ReplaceOnes, ShiftLowering, ShiftRaising,
+	Value,
+};
 use core::ops::{BitAnd, BitOr};
 
 /// Represents a recursive list of [`Value`].
+/// List of `LEN = 0` is not supported.
+///
+/// Example:
+/// - with `LEN = 1`: `FromNum<123>`
+/// - with `LEN = 2`: `(FromNum<456>, FromNum<123>)`
+/// - with `LEN = 3`: `(FromNum<789>, (FromNum<456>, FromNum<123>))`
 pub trait RecList {
 	const LEN: usize;
 }
@@ -125,6 +134,18 @@ pub trait ShiftLoweringAll: RecList {
 	fn shift_lowering_all(self) -> Self::Output;
 }
 
+pub trait PushAll<B>: RecList {
+	type Output: LengthSame<Self>;
+}
+
+pub trait PushAfterMsbAll<B>: RecList {
+	type Output: LengthSame<Self>;
+}
+
+pub trait ReplaceOnesAll<S>: RecList {
+	type Output: LengthSame<Self>;
+}
+
 /// Fold the [`RecList`] applying [`BitAnd`].
 ///
 /// ```
@@ -189,6 +210,23 @@ macro_rules! impl_all {
 			}
 		}
 	};
+	(@all_nofunc [$($param0:ident),*] $trait:ident, $inner_trait:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
+		impl<$($param0,)*$($param: $tparam),*> $trait<$($param0),*> for $obj
+		where
+			$obj: $inner_trait<$($param0),*>,
+			<$obj as $inner_trait<$($param0),*>>::Output: LengthSame<$obj> + Default,
+		{
+			type Output = <$obj as $inner_trait<$($param0),*>>::Output;
+		}
+		impl<$($param0,)*$($param: $tparam,)* A> $trait<$($param0),*> for ($obj, A)
+		where
+			$obj: $inner_trait<$($param0,)*>,
+			A: $trait<$($param0),*>,
+			(<$obj as $inner_trait<$($param0),*>>::Output, <A as $trait<$($param0),*>>::Output): LengthSame<($obj, A)> + Default,
+		{
+			type Output = (<$obj as $inner_trait<$($param0),*>>::Output, <A as $trait<$($param0),*>>::Output);
+		}
+	};
 	(@fold $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param: $tparam),*> $trait for $obj
 		{
@@ -234,6 +272,9 @@ macro_rules! impl_all {
 		impl_all!(@all [S] BitOrAll, BitOr, bitor_all [$($param: $tparam),*] $obj);
 		impl_all!(@all [] ShiftRaisingAll, ShiftRaising, shift_raising_all [$($param: $tparam),*] $obj);
 		impl_all!(@all [] ShiftLoweringAll, ShiftLowering, shift_lowering_all [$($param: $tparam),*] $obj);
+		impl_all!(@all_nofunc [Bi] PushAll, Push [$($param: $tparam),*] $obj);
+		impl_all!(@all_nofunc [Bi] PushAfterMsbAll, PushAfterMsb [$($param: $tparam),*] $obj);
+		impl_all!(@all_nofunc [Si] ReplaceOnesAll, ReplaceOnes [$($param: $tparam),*] $obj);
 		impl_all!(@fold BitAndFold, BitAnd, bitand_fold [$($param: $tparam),*] $obj);
 		impl_all!(@fold BitOrFold, BitOr, bitor_fold [$($param: $tparam),*] $obj);
 	};
