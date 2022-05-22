@@ -5,10 +5,21 @@ use core::marker::PhantomData;
 use core::ops::{BitAnd, BitOr};
 
 pub mod list;
+pub mod rel;
 
 /// Implementation of bitset. See [`Value`]
-#[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Hash)]
 pub struct Cons<B, S>(PhantomData<(B, S)>);
+
+// impl<B0: Bit, B1: Bit, S0: Positive, S1: Positive> PartialEq<Rhs = Cons<B1,
+// S1>> for Cons<B0, S0> where
+// 	B0: PartialEq<B1>,
+// 	S0: PartialEq<S1>,
+// {
+// 	fn eq(&self, other: &Rhs) -> bool {
+// 		(B0 == B1) && ()
+// 	}
+// }
 
 impl<B: Display + Default, S: Display + Default> Display for Cons<B, S> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
@@ -163,7 +174,7 @@ impl Bit for Bit1 {}
 /// >::default();
 /// assert_eq!(a.as_usize(), 0b1010);
 /// ```
-pub trait ShiftRaising {
+pub trait ShiftRaising: Value {
 	type Output: Value;
 	fn shift_raising(self) -> Self::Output;
 }
@@ -204,7 +215,7 @@ where
 /// >::default();
 /// assert_eq!(a.as_usize(), 0b101);
 /// ```
-pub trait ShiftLowering {
+pub trait ShiftLowering: Value {
 	type Output: Value;
 	/// The LSB, dropped from `Self`.
 	///
@@ -260,7 +271,7 @@ where
 /// >::default();
 /// assert_eq!(a.as_usize(), 0b1010);
 /// ```
-pub trait Push<B> {
+pub trait Push<B>: Value {
 	type Output: Value;
 }
 
@@ -294,7 +305,7 @@ impl<B0: Bit, B: Bit, S: Positive> Push<B0> for Cons<B, S> {
 /// assert_eq!(a.as_usize(), 0b1101100);
 /// assert_eq!(b.as_usize(), 0b11100);
 /// ```
-pub trait ReplaceOnes<S> {
+pub trait ReplaceOnes<S>: Value {
 	type Output: Value;
 }
 
@@ -306,14 +317,14 @@ impl<S: Value> ReplaceOnes<S> for Bit1 {
 	type Output = S;
 }
 
-impl<S, S0: ReplaceOnes<S>> ReplaceOnes<S> for Cons<Bit0, S0>
+impl<S, S0: ReplaceOnes<S> + Positive> ReplaceOnes<S> for Cons<Bit0, S0>
 where
 	<S0 as ReplaceOnes<S>>::Output: Positive,
 {
 	type Output = Cons<Bit0, <S0 as ReplaceOnes<S>>::Output>;
 }
 
-impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S>> ReplaceOnes<S>
+impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S> + Positive> ReplaceOnes<S>
 	for Cons<Bit1, S0>
 {
 	type Output = <S as PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>>::Output;
@@ -337,7 +348,7 @@ impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S>> Replac
 /// assert_eq!(a.as_usize(), 0b1101);
 /// assert_eq!(b.as_usize(), 0b1101100);
 /// ```
-pub trait PushAfterMsb<S> {
+pub trait PushAfterMsb<S>: Value {
 	type Output: Value;
 }
 
@@ -349,7 +360,7 @@ impl<S: Positive> PushAfterMsb<S> for Bit1 {
 	type Output = Cons<Bit1, S>;
 }
 
-impl<B: Bit, S: Positive, S0: PushAfterMsb<S>> PushAfterMsb<S> for Cons<B, S0>
+impl<B: Bit, S: Positive, S0: PushAfterMsb<S> + Positive> PushAfterMsb<S> for Cons<B, S0>
 where
 	<S0 as PushAfterMsb<S>>::Output: Positive,
 {
@@ -478,6 +489,13 @@ pub trait FromNumImpl<const N: usize> {
 ///
 /// To create larger number, you can use [`ShiftRaising`] or [`Push`].
 pub type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
+
+pub fn from_num<const N: usize>() -> FromNum<N>
+where
+	Bit0: FromNumImpl<N>,
+{
+	Default::default()
+}
 
 macro_rules! impl_set_of {
 	(@out ) => { $crate::Bit0 };
