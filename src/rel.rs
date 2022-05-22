@@ -78,12 +78,10 @@ impl<B: Bit, S: Positive> NotEqual<Cons<B, S>> for Bit0 {}
 impl<B: Bit, S: Positive> NotEqual<Cons<B, S>> for Bit1 {}
 impl<B: Bit, S: Positive> NotEqual<Bit0> for Cons<B, S> {}
 impl<B: Bit, S: Positive> NotEqual<Bit1> for Cons<B, S> {}
-impl<B0: Bit, B1, S0: Positive, S1> NotEqual<Cons<B1, S1>> for Cons<B0, S0>
-where
-	B1: Bit + NotEqual<B0>,
-	S1: Positive + NotEqual<S0>,
-{
-}
+impl<S0: Positive, S1: Positive + NotEqual<S0>> NotEqual<Cons<Bit0, S1>> for Cons<Bit0, S0> {}
+impl<S0: Positive, S1: Positive + NotEqual<S0>> NotEqual<Cons<Bit1, S1>> for Cons<Bit1, S0> {}
+impl<S0: Positive, S1: Positive> NotEqual<Cons<Bit0, S1>> for Cons<Bit1, S0> {}
+impl<S0: Positive, S1: Positive> NotEqual<Cons<Bit1, S1>> for Cons<Bit0, S0> {}
 
 pub trait GreaterOrEqual<Rhs>: Value {}
 pub trait LessOrEqual<Rhs>: Value {}
@@ -108,10 +106,54 @@ impl_ord! {
 	[B: (Bit), S: (Positive)] Bit1, Cons<B, S>;
 	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0> , NotEqual<S0>)]
 		Cons<Bit1, S0>, Cons<Bit0, S1>;
-	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0> , NotEqual<S0>)]
+	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0>)]
 		Cons<Bit0, S0>, Cons<Bit0, S1>;
-	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0> , NotEqual<S0>)]
+	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0>)]
 		Cons<Bit0, S0>, Cons<Bit1, S1>;
-	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0> , NotEqual<S0>)]
+	[S0: (Positive), S1: (Positive , GreaterOrEqual<S0>)]
 		Cons<Bit1, S0>, Cons<Bit1, S1>;
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::test::if_impl_trait;
+	use crate::FromNum;
+
+	fn check_equal<T, U: Equal<T>>() {}
+	fn check_not_equal<T, U: NotEqual<T>>() {}
+	fn check_greater_eq<T, U: GreaterOrEqual<T>>() {}
+	fn check_less_eq<T, U: LessOrEqual<T>>() {}
+
+	macro_rules! test_with_number {
+		(@run eq $m:expr, $n: expr) => {
+			check_equal::<FromNum<{$m}>, FromNum<{$n}>>();
+			check_greater_eq::<FromNum<{$n}>, FromNum<{$m}>>();
+			check_less_eq::<FromNum<{$m}>, FromNum<{$n}>>();
+			assert!(!if_impl_trait!(FromNum<{$m}>: NotEqual<FromNum<{$n}>>));
+		};
+		(@run neq $m:expr, $n: expr) => { // m > n
+			check_not_equal::<FromNum<{$m}>, FromNum<{$n}>>();
+			check_greater_eq::<FromNum<{$n}>, FromNum<{$m}>>();
+			check_less_eq::<FromNum<{$m}>, FromNum<{$n}>>();
+			assert!(!if_impl_trait!(FromNum<{$m}>: Equal<FromNum<{$n}>>));
+			assert!(!if_impl_trait!(FromNum<{$n}>: GreaterOrEqual<FromNum<{$m}>>));
+			assert!(!if_impl_trait!(FromNum<{$m}>: LessOrEqual<FromNum<{$n}>>));
+		};
+		(@ $lbl:ident [$($ys:expr),*] [$($zs:expr),*]) => {
+			test_with_number!(@run $lbl 0usize $(+$ys)*, 0usize $(+$zs)*);
+		};
+		(@ $lbl:ident [$($ys:expr),*] [$($zs:expr),*] $x:expr $(,$xs:expr)*) => {
+			test_with_number!(@ $lbl [$($ys),*][$($zs),*]$($xs),*);
+			test_with_number!(@ neq [$($ys,)*$x][$($zs),*]$($xs),*);
+			test_with_number!(@ $lbl [$($ys,)*$x][$($zs,)*$x]$($xs),*);
+		};
+		($($xs:expr),*) => {
+			test_with_number!(@ eq [] [] $($xs),*);
+		};
+	}
+	#[test]
+	fn test() {
+		test_with_number!(1, 2, 4, 8, 16, 32);
+	}
 }

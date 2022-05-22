@@ -473,6 +473,8 @@ pub trait FromNumImpl<const N: usize> {
 ///
 /// For example, `FromNum<2>` is expanded to `Cons<Bit0, Bit1>`.
 ///
+/// To generate an object instead of type, use [`from_num()`].
+///
 /// ```
 /// # use typebitset::{Bit0, Bit1, Cons,FromNum};
 /// let _: FromNum<0> = Bit0; // for minimum N
@@ -490,6 +492,9 @@ pub trait FromNumImpl<const N: usize> {
 /// To create larger number, you can use [`ShiftRaising`] or [`Push`].
 pub type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
 
+/// Generate [`Value`] object using const generics.
+///
+/// See [`FromNum`]
 pub fn from_num<const N: usize>() -> FromNum<N>
 where
 	Bit0: FromNumImpl<N>,
@@ -537,7 +542,7 @@ macro_rules! impl_set_of {
 impl_set_of!(1, 1, 1, 1, 1, 1, 1);
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
 	use super::*;
 
 	macro_rules! test_with_number {
@@ -589,7 +594,7 @@ mod test {
 				const IMPLS: bool = false;
 			}
 			impl<T> DoesNotImpl for T {}
-			struct Wrapper<T>(PhantomData<T>);
+			struct Wrapper<T>(::core::marker::PhantomData<T>);
 			#[allow(dead_code)]
 			impl<T> Wrapper<T>
 			where
@@ -600,6 +605,7 @@ mod test {
 			<Wrapper<$t>>::IMPLS
 		}};
 	}
+	pub(crate) use if_impl_trait;
 
 	#[test]
 	fn test() {
