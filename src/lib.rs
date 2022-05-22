@@ -87,6 +87,7 @@ pub trait Value: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
 
+	/// Convert the [`Value`] val to `usize`.
 	fn as_usize(&self) -> usize {
 		Self::N
 	}
@@ -205,11 +206,24 @@ where
 /// ```
 pub trait ShiftLowering {
 	type Output: Value;
+	/// The LSB, dropped from `Self`.
+	///
+	/// ```
+	/// # use typebitset::{Bit0,Bit1,FromNum, ShiftLowering};
+	/// let _: Bit0 = <<
+	/// 	FromNum<0b1010> as ShiftLowering
+	/// >::Lsb as Default>::default();
+	/// let _: Bit1 = <<
+	/// 	FromNum<0b101> as ShiftLowering
+	/// >::Lsb as Default>::default();
+	/// ```
+	type Lsb: Bit;
 	fn shift_lowering(self) -> Self::Output;
 }
 
 impl ShiftLowering for Bit0 {
 	type Output = Bit0;
+	type Lsb = Bit0;
 	fn shift_lowering(self) -> Self::Output {
 		Bit0
 	}
@@ -217,6 +231,7 @@ impl ShiftLowering for Bit0 {
 
 impl ShiftLowering for Bit1 {
 	type Output = Bit0;
+	type Lsb = Bit1;
 	fn shift_lowering(self) -> Self::Output {
 		Bit0
 	}
@@ -228,6 +243,7 @@ where
 	B: Bit,
 {
 	type Output = S;
+	type Lsb = B;
 	fn shift_lowering(self) -> Self::Output {
 		<S as Default>::default()
 	}

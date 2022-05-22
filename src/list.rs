@@ -81,6 +81,44 @@ pub trait LengthSame<S: ?Sized>: RecList {}
 /// ```
 pub trait PositiveAll: RecList {}
 
+/// Implemented on [`RecList`], any of the items are [`Positive`].
+///
+/// ```
+/// # use typebitset::FromNum;
+/// # use typebitset::list::PositiveAny;
+/// fn check<T: PositiveAny>() {}
+/// check::<FromNum<0b101>>();
+/// check::<(FromNum<0b0>, FromNum<0b101>)>();
+/// check::<(FromNum<0b010>, (FromNum<0b0>, FromNum<0b0>))>();
+/// ```
+///
+/// ```compile_fail
+/// # use typebitset::FromNum;
+/// # use typebitset::list::PositiveAny;
+/// # fn check<T: PositiveAny>() {}
+/// // The following code fails
+/// check::<FromNum<0>>();
+/// ```
+/// ```compile_fail
+/// # use typebitset::FromNum;
+/// # use typebitset::list::PositiveAny;
+/// # fn check<T: PositiveAny>() {}
+/// check::<(FromNum<0>, FromNum<0b0>)>();
+/// ```
+/// ```compile_fail
+/// # use typebitset::FromNum;
+/// # use typebitset::list::PositiveAny;
+/// # fn check<T: PositiveAny>() {}
+/// check::<(FromNum<0b0>, (FromNum<0>, FromNum<0b0>))>();
+/// ```
+pub trait PositiveAny: RecList {}
+
+impl PositiveAny for Bit1 {}
+impl<B: Bit, V: Positive> PositiveAny for Cons<B, V> {}
+impl<A: PositiveAny> PositiveAny for (Bit0, A) {}
+impl<A: RecList> PositiveAny for (Bit1, A) {}
+impl<B: Bit, V: Positive, A: RecList> PositiveAny for (Cons<B, V>, A) {}
+
 /// Apply [`BitAnd`] to the all items in the list.
 ///
 /// ```
@@ -230,6 +268,76 @@ pub trait BitOrFold: RecList {
 	fn bitor_fold(self) -> Self::Output;
 }
 
+/// Take the LSBs of given [`RecList`].
+///
+/// ```
+/// # use typebitset::{Bit0, Bit1, Value, FromNum};
+/// # use typebitset::list::TakeLsb;
+/// let _: (Bit0, (Bit1, Bit1)) = <<(
+/// 	FromNum<0b0>, (FromNum<0b1>, (FromNum<0b11>))
+/// ) as TakeLsb>::Output as Default>::default();
+/// let _: (FromNum<0>, (FromNum<0>, FromNum<1>)) = <<(
+/// 	FromNum<0b0>, (FromNum<0b1>, (FromNum<0b11>))
+/// ) as TakeLsb>::Reminder as Default>::default();
+/// ```
+pub trait TakeLsb: RecList {
+	type Output: LengthSame<Self> + BitList;
+	type Reminder: LengthSame<Self>;
+}
+
+/// A [`RecList`], consisted of bits.
+///
+/// As differented from [`Value`] itself, it is legal that [`Bit0`] exists in
+/// MSB. It means that there are multiple [`BitList`] targeted to the same
+/// [`Value`].
+pub trait BitList: RecList {
+	/// Convert the [`BitList`] into a [`Value`].
+	///
+	/// ```
+	/// # use typebitset::{Bit0, Bit1, Value, FromNum};
+	/// # use typebitset::list::BitList;
+	/// fn get_val<T: BitList>() -> T::Val {
+	/// 	<T::Val as Default>::default()
+	/// }
+	/// let _: FromNum<0b1010> = get_val::<(Bit0, (Bit1, (Bit0, Bit1)))>();
+	/// let _: FromNum<1> = get_val::<(Bit1, (Bit0, (Bit0, Bit0)))>();
+	/// ```
+	type Val: Value;
+}
+
+impl BitList for Bit0 {
+	type Val = Bit0;
+}
+
+impl BitList for Bit1 {
+	type Val = Bit1;
+}
+
+impl<B: Bit, A: BitList> BitList for (B, A)
+where
+	(B, A): RecList,
+	(B, A::Val): Normalize,
+{
+	type Val = <(B, A::Val) as Normalize>::Output;
+}
+
+#[doc(hidden)]
+pub trait Normalize {
+	type Output: Value;
+}
+
+impl<B: Bit> Normalize for (B, Bit0) {
+	type Output = B;
+}
+
+impl<B: Bit> Normalize for (B, Bit1) {
+	type Output = Cons<B, Bit1>;
+}
+
+impl<B: Bit, B0: Bit, V0: Positive> Normalize for (B, Cons<B0, V0>) {
+	type Output = Cons<B, Cons<B0, V0>>;
+}
+
 macro_rules! impl_all {
 	(@all [$($param0:ident),*] $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param0,)*$($param: $tparam),*> $trait<$($param0),*> for $obj
@@ -310,6 +418,27 @@ macro_rules! impl_all {
 			$obj: Value,
 		{
 			type Item = $obj;
+		}
+
+		impl<$($param: $tparam),*> TakeLsb for $obj
+		where
+			$obj: ShiftLowering,
+			<$obj as ShiftLowering>::Lsb: BitList + LengthSame<Self>,
+			<$obj as ShiftLowering>::Output: LengthSame<Self>,
+		{
+			type Output = <$obj as ShiftLowering>::Lsb;
+			type Reminder = <$obj as ShiftLowering>::Output;
+		}
+
+		impl<A$(,$param: $tparam)*> TakeLsb for ($obj, A)
+		where
+			(<$obj as ShiftLowering>::Lsb, A::Output): BitList + LengthSame<Self>,
+			(<$obj as ShiftLowering>::Output, A::Reminder): LengthSame<Self>,
+			A: TakeLsb,
+			$obj: ShiftLowering,
+		{
+			type Output = (<$obj as ShiftLowering>::Lsb, A::Output);
+			type Reminder = (<$obj as ShiftLowering>::Output, A::Reminder);
 		}
 
 		impl_all!(@all [S] BitAndAll, BitAnd, bitand_all [$($param: $tparam),*] $obj);
