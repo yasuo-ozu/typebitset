@@ -3,6 +3,8 @@ use crate::{
 	Bit, Bit0, Bit1, Cons, Positive, Push, PushAfterMsb, ReplaceOnes, ShiftLowering, ShiftRaising,
 	Value,
 };
+use core::fmt::Debug;
+use core::hash::Hash;
 use core::ops::{BitAnd, BitOr};
 
 /// Represents a recursive tuple list of [`Value`].
@@ -12,7 +14,7 @@ use core::ops::{BitAnd, BitOr};
 /// - with `LEN = 1`: `FromNum<123>`
 /// - with `LEN = 2`: `(FromNum<456>, FromNum<123>)`
 /// - with `LEN = 3`: `(FromNum<789>, (FromNum<456>, FromNum<123>))`
-pub trait RecList {
+pub trait RecList: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
 	const LEN: usize;
 }
 
@@ -180,6 +182,17 @@ pub trait ShiftRaisingAll: RecList {
 /// ```
 pub trait ShiftLoweringAll: RecList {
 	type Output: LengthSame<Self>;
+
+	/// Take the LSBs of given [`RecList`].
+	///
+	/// ```
+	/// # use typebitset::{Bit0, Bit1, Value, FromNum};
+	/// # use typebitset::list::ShiftLoweringAll;
+	/// let _: (Bit0, (Bit1, Bit1)) = <<(
+	/// 	FromNum<0b0>, (FromNum<0b1>, (FromNum<0b11>))
+	/// ) as ShiftLoweringAll>::Lsb as Default>::default();
+	/// ```
+	type Lsb: LengthSame<Self> + BitList;
 	fn shift_lowering_all(self) -> Self::Output;
 }
 
@@ -266,23 +279,6 @@ pub trait BitAndFold: RecList {
 pub trait BitOrFold: RecList {
 	type Output: Value;
 	fn bitor_fold(self) -> Self::Output;
-}
-
-/// Take the LSBs of given [`RecList`].
-///
-/// ```
-/// # use typebitset::{Bit0, Bit1, Value, FromNum};
-/// # use typebitset::list::TakeLsb;
-/// let _: (Bit0, (Bit1, Bit1)) = <<(
-/// 	FromNum<0b0>, (FromNum<0b1>, (FromNum<0b11>))
-/// ) as TakeLsb>::Output as Default>::default();
-/// let _: (FromNum<0>, (FromNum<0>, FromNum<1>)) = <<(
-/// 	FromNum<0b0>, (FromNum<0b1>, (FromNum<0b11>))
-/// ) as TakeLsb>::Reminder as Default>::default();
-/// ```
-pub trait TakeLsb: RecList {
-	type Output: LengthSame<Self> + BitList;
-	type Reminder: LengthSame<Self>;
 }
 
 /// A [`RecList`], consisted of bits.
@@ -420,31 +416,36 @@ macro_rules! impl_all {
 			type Item = $obj;
 		}
 
-		impl<$($param: $tparam),*> TakeLsb for $obj
+		impl<$($param: $tparam),*> ShiftLoweringAll for $obj
 		where
 			$obj: ShiftLowering,
 			<$obj as ShiftLowering>::Lsb: BitList + LengthSame<Self>,
 			<$obj as ShiftLowering>::Output: LengthSame<Self>,
 		{
-			type Output = <$obj as ShiftLowering>::Lsb;
-			type Reminder = <$obj as ShiftLowering>::Output;
+			type Lsb = <$obj as ShiftLowering>::Lsb;
+			type Output = <$obj as ShiftLowering>::Output;
+			fn shift_lowering_all(self) -> Self::Output {
+				Default::default()
+			}
 		}
 
-		impl<A$(,$param: $tparam)*> TakeLsb for ($obj, A)
+		impl<A$(,$param: $tparam)*> ShiftLoweringAll for ($obj, A)
 		where
-			(<$obj as ShiftLowering>::Lsb, A::Output): BitList + LengthSame<Self>,
-			(<$obj as ShiftLowering>::Output, A::Reminder): LengthSame<Self>,
-			A: TakeLsb,
+			(<$obj as ShiftLowering>::Lsb, A::Lsb): BitList + LengthSame<Self>,
+			(<$obj as ShiftLowering>::Output, A::Output): LengthSame<Self>,
+			A: ShiftLoweringAll,
 			$obj: ShiftLowering,
 		{
-			type Output = (<$obj as ShiftLowering>::Lsb, A::Output);
-			type Reminder = (<$obj as ShiftLowering>::Output, A::Reminder);
+			type Lsb = (<$obj as ShiftLowering>::Lsb, A::Lsb);
+			type Output = (<$obj as ShiftLowering>::Output, A::Output);
+			fn shift_lowering_all(self) -> Self::Output {
+				Default::default()
+			}
 		}
 
 		impl_all!(@all [S] BitAndAll, BitAnd, bitand_all [$($param: $tparam),*] $obj);
 		impl_all!(@all [S] BitOrAll, BitOr, bitor_all [$($param: $tparam),*] $obj);
 		impl_all!(@all [] ShiftRaisingAll, ShiftRaising, shift_raising_all [$($param: $tparam),*] $obj);
-		impl_all!(@all [] ShiftLoweringAll, ShiftLowering, shift_lowering_all [$($param: $tparam),*] $obj);
 		impl_all!(@all_nofunc [Bi] PushAll, Push [$($param: $tparam),*] $obj);
 		impl_all!(@all_nofunc [Bi] PushAfterMsbAll, PushAfterMsb [$($param: $tparam),*] $obj);
 		impl_all!(@all_nofunc [Si] ReplaceOnesAll, ReplaceOnes [$($param: $tparam),*] $obj);
