@@ -118,7 +118,7 @@ impl_ord! {
 mod test {
 	use super::*;
 	use crate::test::if_impl_trait;
-	use crate::FromNum;
+	use crate::{from_num, FromNum};
 
 	fn check_equal<T, U: Equal<T>>() {}
 	fn check_not_equal<T, U: NotEqual<T>>() {}
@@ -131,6 +131,11 @@ mod test {
 			check_greater_eq::<FromNum<{$n}>, FromNum<{$m}>>();
 			check_less_eq::<FromNum<{$m}>, FromNum<{$n}>>();
 			assert!(!if_impl_trait!(FromNum<{$m}>: NotEqual<FromNum<{$n}>>));
+			assert!(from_num::<{$m}>() == from_num::<{$n}>());
+			assert!(!(from_num::<{$m}>() > from_num::<{$n}>()));
+			assert!(!(from_num::<{$m}>() < from_num::<{$n}>()));
+			assert!(from_num::<{$m}>() >= from_num::<{$n}>());
+			assert!(from_num::<{$m}>() <= from_num::<{$n}>());
 		};
 		(@run neq $m:expr, $n: expr) => { // m > n
 			check_not_equal::<FromNum<{$m}>, FromNum<{$n}>>();
@@ -139,6 +144,9 @@ mod test {
 			assert!(!if_impl_trait!(FromNum<{$m}>: Equal<FromNum<{$n}>>));
 			assert!(!if_impl_trait!(FromNum<{$n}>: GreaterOrEqual<FromNum<{$m}>>));
 			assert!(!if_impl_trait!(FromNum<{$m}>: LessOrEqual<FromNum<{$n}>>));
+			assert!(from_num::<{$m}>() != from_num::<{$n}>());
+			assert!(from_num::<{$m}>() > from_num::<{$n}>());
+			assert!(!(from_num::<{$m}>() <= from_num::<{$n}>()));
 		};
 		(@ $lbl:ident [$($ys:expr),*] [$($zs:expr),*]) => {
 			test_with_number!(@run $lbl 0usize $(+$ys)*, 0usize $(+$zs)*);

@@ -8,18 +8,36 @@ pub mod list;
 pub mod rel;
 
 /// Implementation of bitset. See [`Value`]
-#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Default, Debug, Hash)]
 pub struct Cons<B, S>(PhantomData<(B, S)>);
 
-// impl<B0: Bit, B1: Bit, S0: Positive, S1: Positive> PartialEq<Rhs = Cons<B1,
-// S1>> for Cons<B0, S0> where
-// 	B0: PartialEq<B1>,
-// 	S0: PartialEq<S1>,
-// {
-// 	fn eq(&self, other: &Rhs) -> bool {
-// 		(B0 == B1) && ()
-// 	}
-// }
+macro_rules! impl_cmp_op {
+	($([$($pname:tt$(: $ptyp:tt)*),*] $m:path, $n:path;)*) => {
+		$(
+			impl<$($pname$(: $ptyp)*),*> PartialEq<$n> for $m
+			{
+				fn eq(&self, _: &$n) -> bool {
+					<$m as Value>::N == <$n as Value>::N
+				}
+			}
+			impl<$($pname$(: $ptyp)*),*> PartialOrd<$n> for $m
+			{
+				fn partial_cmp(&self, _: &$n) -> Option<core::cmp::Ordering> {
+					<$m as Value>::N.partial_cmp(&<$n as Value>::N)
+				}
+			}
+		)*
+	}
+}
+
+impl_cmp_op! {
+	[B: Bit] Bit0, B;
+	[B: Bit] Bit1, B;
+	[B: Bit, S: Positive] Bit0, Cons<B, S>;
+	[B: Bit, S: Positive] Bit1, Cons<B, S>;
+	[B1: Bit, B: Bit, S: Positive] Cons<B, S>, B1;
+	[B0: Bit, B1: Bit, S0: Positive, S1: Positive] Cons<B0, S0>, Cons<B1, S1>;
+}
 
 impl<B: Display + Default, S: Display + Default> Display for Cons<B, S> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,7 +53,7 @@ impl<B: Display + Default, S: Display + Default> Display for Cons<B, S> {
 /// Represents a bitset represented as zero.
 /// Only if a bitset equals to [`Bit0`], the bitset means zero.
 /// See [`Value`] for details.
-#[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Default, Eq, Debug, Hash)]
 pub struct Bit0;
 impl Display for Bit0 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
@@ -45,7 +63,7 @@ impl Display for Bit0 {
 
 /// Represents a bitset represented as one.
 /// See [`Value`] for details.
-#[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Default, Eq, Debug, Hash)]
 pub struct Bit1;
 impl Display for Bit1 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,7 +112,7 @@ impl Display for Bit1 {
 /// let _: FromNum<0b101> = <FromNum<0b100> as Default>::default() | Bit1;
 /// let _: FromNum<0b1> = <FromNum<0b111> as Default>::default() & Bit1;
 /// ```
-pub trait Value: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
+pub trait Value: Copy + Clone + Default + PartialEq + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
 
@@ -545,6 +563,25 @@ impl_set_of!(1, 1, 1, 1, 1, 1, 1);
 pub(crate) mod test {
 	use super::*;
 
+	macro_rules! if_impl_trait {
+		($t:ty : $tr:path) => {{
+			trait DoesNotImpl {
+				const IMPLS: bool = false;
+			}
+			impl<T> DoesNotImpl for T {}
+			struct Wrapper<T>(::core::marker::PhantomData<T>);
+			#[allow(dead_code)]
+			impl<T> Wrapper<T>
+			where
+				T: $tr,
+			{
+				const IMPLS: bool = true;
+			}
+			<Wrapper<$t>>::IMPLS
+		}};
+	}
+	pub(crate) use if_impl_trait;
+
 	macro_rules! test_with_number {
 		(@run $n:expr) => {
 			let _: FromNum<{ $n * 2 }> = <<FromNum<{ $n }> as ShiftRaising>::Output>::default();
@@ -587,25 +624,6 @@ pub(crate) mod test {
 			test_and_or!(@ [] [] $($xs),*);
 		};
 	}
-
-	macro_rules! if_impl_trait {
-		($t:ty : $tr:path) => {{
-			trait DoesNotImpl {
-				const IMPLS: bool = false;
-			}
-			impl<T> DoesNotImpl for T {}
-			struct Wrapper<T>(::core::marker::PhantomData<T>);
-			#[allow(dead_code)]
-			impl<T> Wrapper<T>
-			where
-				T: $tr,
-			{
-				const IMPLS: bool = true;
-			}
-			<Wrapper<$t>>::IMPLS
-		}};
-	}
-	pub(crate) use if_impl_trait;
 
 	#[test]
 	fn test() {

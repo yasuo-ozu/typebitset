@@ -14,7 +14,7 @@ use core::ops::{BitAnd, BitOr};
 /// - with `LEN = 1`: `FromNum<123>`
 /// - with `LEN = 2`: `(FromNum<456>, FromNum<123>)`
 /// - with `LEN = 3`: `(FromNum<789>, (FromNum<456>, FromNum<123>))`
-pub trait RecList: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
+pub trait RecList: Copy + Clone + Default + PartialEq + Debug + Hash {
 	const LEN: usize;
 }
 
