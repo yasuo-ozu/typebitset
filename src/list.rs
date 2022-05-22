@@ -1,10 +1,11 @@
+//! This module defines [`RecList`].
 use crate::{
 	Bit, Bit0, Bit1, Cons, Positive, Push, PushAfterMsb, ReplaceOnes, ShiftLowering, ShiftRaising,
 	Value,
 };
 use core::ops::{BitAnd, BitOr};
 
-/// Represents a recursive list of [`Value`].
+/// Represents a recursive tuple list of [`Value`].
 /// List of `LEN = 0` is not supported.
 ///
 /// Example:
@@ -59,13 +60,23 @@ pub trait LengthSame<S: ?Sized>: RecList {}
 /// check::<(FromNum<0b010>, (FromNum<0b100>, FromNum<0b101>))>();
 /// ```
 ///
-/// ```fail
+/// ```compile_fail
 /// # use typebitset::FromNum;
 /// # use typebitset::list::PositiveAll;
-/// fn check<T: PositiveAll>() {}
+/// # fn check<T: PositiveAll>() {}
 /// // The following code fails
 /// check::<FromNum<0>>();
+/// ```
+/// ```compile_fail
+/// # use typebitset::FromNum;
+/// # use typebitset::list::PositiveAll;
+/// # fn check<T: PositiveAll>() {}
 /// check::<(FromNum<0>, FromNum<0b101>)>();
+/// ```
+/// ```compile_fail
+/// # use typebitset::FromNum;
+/// # use typebitset::list::PositiveAll;
+/// # fn check<T: PositiveAll>() {}
 /// check::<(FromNum<0b010>, (FromNum<0>, FromNum<0b101>))>();
 /// ```
 pub trait PositiveAll: RecList {}

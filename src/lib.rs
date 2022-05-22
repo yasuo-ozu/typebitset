@@ -43,6 +43,46 @@ impl Display for Bit1 {
 }
 
 /// The main trait represents a bitset.
+///
+/// [`Value`] is an representation of non-negative number. It can be converted
+/// to `usize` number via [`Value::as_usize`] or [`Value::N`].
+///
+/// [`Value`] is one of [`Bit`], [`Cons<B, S>`] where `B: Bit, S: Positive`.
+/// Because the constraint of `S: Positive`, the type representation of a number
+/// is uniquely decided. Thus the following code is not allowed:
+///
+/// ```compile_fail
+/// # use typebitset::{Value, Cons, Bit0, Bit1};
+/// fn check<T: Value>() -> usize { T::N  }
+/// check::<Cons<Bit0, Bit0>>();
+/// ```
+/// ```compile_fail
+/// # use typebitset::{Value, Cons, Bit0, Bit1};
+/// # fn check<T: Value>() -> usize { T::N  }
+/// check::<Cons<Bit0, Cons<Bit0, Bit0>>>();
+/// ```
+///
+/// And the followings are consistent.
+///
+/// ```
+/// # use typebitset::{Value, Cons, Bit0, Bit1};
+/// # fn check<T: Value>() -> usize { T::N  }
+/// assert_eq!(
+/// 	check::<Cons<Bit1, Cons<Bit0, Bit1>>>(),
+/// 	0b101
+/// );
+/// ```
+///
+/// You can use [`FromNum<N>`] to create [`Value`] type for small number `N`.
+/// See [`FromNum`] for details.
+///
+/// Operators [`BitAnd`] and [`BitOr`] are supported.
+///
+/// ```
+/// # use typebitset::{FromNum, Bit0, Bit1};
+/// let _: FromNum<0b101> = <FromNum<0b100> as Default>::default() | Bit1;
+/// let _: FromNum<0b1> = <FromNum<0b111> as Default>::default() & Bit1;
+/// ```
 pub trait Value: Copy + Clone + Default + Eq + PartialEq + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
@@ -96,12 +136,10 @@ value_from!([B: Bit, S: Positive] Cons);
 /// test::<FromNum<2>>();
 /// test::<FromNum<3>>();
 /// ```
-///
-/// ```fail
+/// ```compile_fail
 /// # use typebitset::{FromNum, Positive};
-/// fn test<T: Positive>() {}
-///
-/// // Cannot compile
+/// # fn test<T: Positive>() {}
+/// // fail
 /// test::<FromNum<0>>();
 /// ```
 pub trait Positive: Value {}
@@ -403,6 +441,26 @@ pub trait FromNumImpl<const N: usize> {
 	type Output: Value;
 }
 
+/// Generate [`Value`] type for small number `N`.
+/// [`FromNum<N>`] is defined where `N` is in `0..2 ** 7`.
+///
+/// For example, `FromNum<2>` is expanded to `Cons<Bit0, Bit1>`.
+///
+/// ```
+/// # use typebitset::{Bit0, Bit1, Cons,FromNum};
+/// let _: FromNum<0> = Bit0; // for minimum N
+/// let _: FromNum<1> = Bit1;
+/// let _: FromNum<2> = <Cons<Bit0, Bit1> as Default>::default();
+/// let _: FromNum<3> = <Cons<Bit1, Bit1> as Default>::default();
+/// let _: FromNum<4> = <Cons<Bit0, Cons<Bit0, Bit1>> as Default>::default();
+/// let _: FromNum<{2_usize.pow(7) - 1}>; // for maximum N
+/// ```
+/// ```compile_fail
+/// # use typebitset::FromNum;
+/// let _: FromNum<{2_usize.pow(7)}>; // Compile error
+/// ```
+///
+/// To create larger number, you can use [`ShiftRaising`] or [`Push`].
 pub type FromNum<const N: usize> = <Bit0 as FromNumImpl<N>>::Output;
 
 macro_rules! impl_set_of {
