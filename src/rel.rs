@@ -171,142 +171,133 @@ impl_ord! {
 
 /// Compare two given [`Value`] and give `MAX` and `MIN` of them.
 ///
+/// `BitL`, `BitR`, `BitC` are for internal use.
+///
 /// ```
 /// # use typebitset::{FromNum,from_num,rel::Compare};
 /// let _: FromNum<{3}> = <<FromNum<{3}> as Compare<FromNum<{2}>>>::MAX as Default>::default();
 /// let _: FromNum<{2}> = <<FromNum<{3}> as Compare<FromNum<{2}>>>::MIN as Default>::default();
 /// ```
-pub trait Compare<Rhs>: Value {
+pub trait Compare<Rhs, BitL = (), BitR = (), BitC = ()>: Value {
 	type MAX: Value;
 	type MIN: Value;
-}
 
-impl<Rhs, T: CompareImpl<Rhs, (), (), ()>> Compare<Rhs> for T {
-	type MAX = <T as CompareImpl<Rhs, (), (), ()>>::MAX;
-	type MIN = <T as CompareImpl<Rhs, (), (), ()>>::MIN;
-}
-
-#[doc(hidden)]
-pub trait CompareImpl<Rhs, BitL, BitR, BitC>: Value {
-	type MAX: Value;
-	type MIN: Value;
+	#[doc(hidden)]
 	type BMAX;
+	#[doc(hidden)]
 	type BMIN;
 }
 
-impl<BL, BR, BC> CompareImpl<Bit0, BL, BR, BC> for Bit0 {
+impl<BL, BR, BC> Compare<Bit0, BL, BR, BC> for Bit0 {
 	type MAX = Bit0;
 	type MIN = Bit0;
 	type BMAX = BC;
 	type BMIN = BC;
 }
 
-impl<BL, BR, BC> CompareImpl<Bit1, BL, BR, BC> for Bit0 {
+impl<BL, BR, BC> Compare<Bit1, BL, BR, BC> for Bit0 {
 	type MAX = Bit1;
 	type MIN = Bit0;
 	type BMAX = BR;
 	type BMIN = BL;
 }
 
-impl<BL, BR, BC> CompareImpl<Bit0, BL, BR, BC> for Bit1 {
+impl<BL, BR, BC> Compare<Bit0, BL, BR, BC> for Bit1 {
 	type MAX = Bit1;
 	type MIN = Bit0;
 	type BMAX = BL;
 	type BMIN = BR;
 }
 
-impl<BL, BR, BC> CompareImpl<Bit1, BL, BR, BC> for Bit1 {
+impl<BL, BR, BC> Compare<Bit1, BL, BR, BC> for Bit1 {
 	type MAX = Bit1;
 	type MIN = Bit1;
 	type BMAX = BC;
 	type BMIN = BC;
 }
 
-impl<BL, BR, BC, B0: Bit, S0: Positive> CompareImpl<Bit0, BL, BR, BC> for Cons<B0, S0> {
+impl<BL, BR, BC, B0: Bit, S0: Positive> Compare<Bit0, BL, BR, BC> for Cons<B0, S0> {
 	type MAX = Cons<B0, S0>;
 	type MIN = Bit0;
 	type BMAX = BL;
 	type BMIN = BR;
 }
 
-impl<BL, BR, BC, B0: Bit, S0: Positive> CompareImpl<Bit1, BL, BR, BC> for Cons<B0, S0> {
+impl<BL, BR, BC, B0: Bit, S0: Positive> Compare<Bit1, BL, BR, BC> for Cons<B0, S0> {
 	type MAX = Cons<B0, S0>;
 	type MIN = Bit1;
 	type BMAX = BL;
 	type BMIN = BR;
 }
 
-impl<BL, BR, BC, B0: Bit, S0: Positive> CompareImpl<Cons<B0, S0>, BL, BR, BC> for Bit0 {
+impl<BL, BR, BC, B0: Bit, S0: Positive> Compare<Cons<B0, S0>, BL, BR, BC> for Bit0 {
 	type MAX = Cons<B0, S0>;
 	type MIN = Bit0;
 	type BMAX = BR;
 	type BMIN = BL;
 }
 
-impl<BL, BR, BC, B0: Bit, S0: Positive> CompareImpl<Cons<B0, S0>, BL, BR, BC> for Bit1 {
+impl<BL, BR, BC, B0: Bit, S0: Positive> Compare<Cons<B0, S0>, BL, BR, BC> for Bit1 {
 	type MAX = Cons<B0, S0>;
 	type MIN = Bit1;
 	type BMAX = BR;
 	type BMIN = BL;
 }
 
-impl<BL, BR, BC, S0: Positive, S1: Positive> CompareImpl<Cons<Bit0, S1>, BL, BR, BC>
-	for Cons<Bit0, S0>
+impl<BL, BR, BC, S0: Positive, S1: Positive> Compare<Cons<Bit0, S1>, BL, BR, BC> for Cons<Bit0, S0>
 where
-	S0: CompareImpl<S1, BL, BR, BC>,
-	<S0 as CompareImpl<S1, BL, BR, BC>>::MAX: Positive,
-	<S0 as CompareImpl<S1, BL, BR, BC>>::MIN: Positive,
+	S0: Compare<S1, BL, BR, BC>,
+	<S0 as Compare<S1, BL, BR, BC>>::MAX: Positive,
+	<S0 as Compare<S1, BL, BR, BC>>::MIN: Positive,
 {
-	type MAX = Cons<Bit0, <S0 as CompareImpl<S1, BL, BR, BC>>::MAX>;
-	type MIN = Cons<Bit0, <S0 as CompareImpl<S1, BL, BR, BC>>::MIN>;
-	type BMAX = <S0 as CompareImpl<S1, BL, BR, BC>>::BMAX;
-	type BMIN = <S0 as CompareImpl<S1, BL, BR, BC>>::BMIN;
+	type MAX = Cons<Bit0, <S0 as Compare<S1, BL, BR, BC>>::MAX>;
+	type MIN = Cons<Bit0, <S0 as Compare<S1, BL, BR, BC>>::MIN>;
+	type BMAX = <S0 as Compare<S1, BL, BR, BC>>::BMAX;
+	type BMIN = <S0 as Compare<S1, BL, BR, BC>>::BMIN;
 }
 
-impl<BL, BR, BC, S0: Positive, S1: Positive> CompareImpl<Cons<Bit1, S1>, BL, BR, BC>
-	for Cons<Bit1, S0>
+impl<BL, BR, BC, S0: Positive, S1: Positive> Compare<Cons<Bit1, S1>, BL, BR, BC> for Cons<Bit1, S0>
 where
-	S0: CompareImpl<S1, BL, BR, BC>,
-	<S0 as CompareImpl<S1, BL, BR, BC>>::MAX: Positive,
-	<S0 as CompareImpl<S1, BL, BR, BC>>::MIN: Positive,
+	S0: Compare<S1, BL, BR, BC>,
+	<S0 as Compare<S1, BL, BR, BC>>::MAX: Positive,
+	<S0 as Compare<S1, BL, BR, BC>>::MIN: Positive,
 {
-	type MAX = Cons<Bit1, <S0 as CompareImpl<S1, BL, BR, BC>>::MAX>;
-	type MIN = Cons<Bit1, <S0 as CompareImpl<S1, BL, BR, BC>>::MIN>;
-	type BMAX = <S0 as CompareImpl<S1, BL, BR, BC>>::BMAX;
-	type BMIN = <S0 as CompareImpl<S1, BL, BR, BC>>::BMIN;
+	type MAX = Cons<Bit1, <S0 as Compare<S1, BL, BR, BC>>::MAX>;
+	type MIN = Cons<Bit1, <S0 as Compare<S1, BL, BR, BC>>::MIN>;
+	type BMAX = <S0 as Compare<S1, BL, BR, BC>>::BMAX;
+	type BMIN = <S0 as Compare<S1, BL, BR, BC>>::BMIN;
 }
 
-impl<BL, BR, BC, S0: Positive, S1: Positive> CompareImpl<Cons<Bit1, S1>, BL, BR, BC>
-	for Cons<Bit0, S0>
+impl<BL, BR, BC, S0: Positive, S1: Positive> Compare<Cons<Bit1, S1>, BL, BR, BC> for Cons<Bit0, S0>
 where
-	S0: CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>
-		+ CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::BMAX:
+	S0: Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>
+		+ Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>,
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::BMAX:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::BMIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::BMIN:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::MAX:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::MAX:
 		Positive,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::MIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit0>>>::MIN:
 		Positive,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::BMAX:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::BMAX:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::BMIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::BMIN:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::MAX:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::MAX:
 		Positive,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::MIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit0>, TagBitSet<BR, Bit1>, TagBitSet<BC, Bit1>>>::MIN:
 		Positive,
 {
 	type MAX =
 		Cons<
-			<<S0 as CompareImpl<
+			<<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit0>,
 				TagBitSet<BR, Bit1>,
 				TagBitSet<BC, Bit1>,
 			>>::BMAX as TagBitSetImpl>::Bit,
-			<S0 as CompareImpl<
+			<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit0>,
 				TagBitSet<BR, Bit1>,
@@ -315,26 +306,26 @@ where
 		>;
 	type MIN =
 		Cons<
-			<<S0 as CompareImpl<
+			<<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit0>,
 				TagBitSet<BR, Bit1>,
 				TagBitSet<BC, Bit0>,
 			>>::BMIN as TagBitSetImpl>::Bit,
-			<S0 as CompareImpl<
+			<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit0>,
 				TagBitSet<BR, Bit1>,
 				TagBitSet<BC, Bit0>,
 			>>::MIN,
 		>;
-	type BMAX = <<S0 as CompareImpl<
+	type BMAX = <<S0 as Compare<
 		S1,
 		TagBitSet<BL, Bit0>,
 		TagBitSet<BR, Bit1>,
 		TagBitSet<BC, Bit1>,
 	>>::BMAX as TagBitSetImpl>::Tag;
-	type BMIN = <<S0 as CompareImpl<
+	type BMIN = <<S0 as Compare<
 		S1,
 		TagBitSet<BL, Bit0>,
 		TagBitSet<BR, Bit1>,
@@ -342,37 +333,36 @@ where
 	>>::BMIN as TagBitSetImpl>::Tag;
 }
 
-impl<BL, BR, BC, S0: Positive, S1: Positive> CompareImpl<Cons<Bit0, S1>, BL, BR, BC>
-	for Cons<Bit1, S0>
+impl<BL, BR, BC, S0: Positive, S1: Positive> Compare<Cons<Bit0, S1>, BL, BR, BC> for Cons<Bit1, S0>
 where
-	S0: CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>
-		+ CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::BMAX:
+	S0: Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>
+		+ Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>,
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::BMAX:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::BMIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::BMIN:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::MAX:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::MAX:
 		Positive,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::MIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit0>>>::MIN:
 		Positive,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::BMAX:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::BMAX:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::BMIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::BMIN:
 		TagBitSetImpl,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::MAX:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::MAX:
 		Positive,
-	<S0 as CompareImpl<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::MIN:
+	<S0 as Compare<S1, TagBitSet<BL, Bit1>, TagBitSet<BR, Bit0>, TagBitSet<BC, Bit1>>>::MIN:
 		Positive,
 {
 	type MAX =
 		Cons<
-			<<S0 as CompareImpl<
+			<<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit1>,
 				TagBitSet<BR, Bit0>,
 				TagBitSet<BC, Bit1>,
 			>>::BMAX as TagBitSetImpl>::Bit,
-			<S0 as CompareImpl<
+			<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit1>,
 				TagBitSet<BR, Bit0>,
@@ -381,26 +371,26 @@ where
 		>;
 	type MIN =
 		Cons<
-			<<S0 as CompareImpl<
+			<<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit1>,
 				TagBitSet<BR, Bit0>,
 				TagBitSet<BC, Bit0>,
 			>>::BMIN as TagBitSetImpl>::Bit,
-			<S0 as CompareImpl<
+			<S0 as Compare<
 				S1,
 				TagBitSet<BL, Bit1>,
 				TagBitSet<BR, Bit0>,
 				TagBitSet<BC, Bit0>,
 			>>::MIN,
 		>;
-	type BMAX = <<S0 as CompareImpl<
+	type BMAX = <<S0 as Compare<
 		S1,
 		TagBitSet<BL, Bit1>,
 		TagBitSet<BR, Bit0>,
 		TagBitSet<BC, Bit1>,
 	>>::BMAX as TagBitSetImpl>::Tag;
-	type BMIN = <<S0 as CompareImpl<
+	type BMIN = <<S0 as Compare<
 		S1,
 		TagBitSet<BL, Bit1>,
 		TagBitSet<BR, Bit0>,

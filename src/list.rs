@@ -1,7 +1,7 @@
 //! This module defines [`RecList`].
 use crate::{
-	Bit, Bit0, Bit1, Cons, Positive, Push, PushAfterMsb, ReplaceOnes, ShiftLowering, ShiftRaising,
-	Value,
+	rel, Bit, Bit0, Bit1, Cons, Positive, Push, PushAfterMsb, ReplaceOnes, ShiftLowering,
+	ShiftRaising, Value,
 };
 use core::fmt::Debug;
 use core::hash::Hash;
@@ -349,6 +349,14 @@ pub trait BitXorFold: RecList {
 	}
 }
 
+/// Give the maximum and minimum value in the [`RecList`].
+///
+/// ```
+/// # use typebitset::{FromNum,from_num, list::Compare};
+/// let list = (from_num::<2>(), (from_num::<3>(), from_num::<4>()));
+/// let _: FromNum<4> = Compare::max(&list);
+/// let _: FromNum<2> = Compare::min(&list);
+/// ```
 pub trait Compare: RecList {
 	type MAX: Value;
 	type MIN: Value;
@@ -474,9 +482,6 @@ macro_rules! impl_all {
 		{
 			type Lsb = <$obj as ShiftLowering>::Lsb;
 			type Output = <$obj as ShiftLowering>::Output;
-			fn shift_lowering_all(self) -> Self::Output {
-				Default::default()
-			}
 		}
 
 		impl<A$(,$param: $tparam)*> ShiftLoweringAll for ($obj, A)
@@ -488,9 +493,21 @@ macro_rules! impl_all {
 		{
 			type Lsb = (<$obj as ShiftLowering>::Lsb, A::Lsb);
 			type Output = (<$obj as ShiftLowering>::Output, A::Output);
-			fn shift_lowering_all(self) -> Self::Output {
-				Default::default()
-			}
+		}
+
+		impl<$($param: $tparam),*> Compare for $obj {
+			type MAX = $obj;
+			type MIN = $obj;
+		}
+
+		impl<A: Compare$(,$param: $tparam)*> Compare for ($obj, A)
+		where
+			($obj, A): RecList,
+			<A as Compare>::MAX: rel::Compare<$obj>,
+			<A as Compare>::MIN: rel::Compare<$obj>,
+		{
+			type MAX = <<A as Compare>::MAX as rel::Compare<$obj>>::MAX;
+			type MIN = <<A as Compare>::MIN as rel::Compare<$obj>>::MIN;
 		}
 
 		impl_all!(@all [S] BitAndAll, BitAnd [$($param: $tparam),*] $obj);
