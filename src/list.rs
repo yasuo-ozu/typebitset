@@ -5,7 +5,7 @@ use crate::{
 };
 use core::fmt::Debug;
 use core::hash::Hash;
-use core::ops::{BitAnd, BitOr};
+use core::ops::{BitAnd, BitOr, BitXor};
 
 /// Represents a recursive tuple list of [`Value`].
 /// List of `LEN = 0` is not supported.
@@ -151,6 +151,22 @@ pub trait BitAndAll<S>: RecList {
 pub trait BitOrAll<S>: RecList {
 	type Output: LengthSame<Self>;
 	fn bitor_all(self, _: S) -> Self::Output;
+}
+
+/// Apply [`BitXor`] to the all items in the list.
+///
+/// ```
+/// # use typebitset::FromNum;
+/// # use typebitset::list::BitXorAll;
+/// let _: (FromNum<0b10>, FromNum<0b101>) = <
+/// 	<
+/// 		(FromNum<0b11>,FromNum<0b100>) as BitXorAll<FromNum<1>>
+/// 	>::Output as Default
+/// >::default();
+/// ```
+pub trait BitXorAll<S>: RecList {
+	type Output: LengthSame<Self>;
+	fn bitxor_all(self, _: S) -> Self::Output;
 }
 
 /// Apply [`ShiftRaising`] to the all items in the list.
@@ -445,6 +461,7 @@ macro_rules! impl_all {
 
 		impl_all!(@all [S] BitAndAll, BitAnd, bitand_all [$($param: $tparam),*] $obj);
 		impl_all!(@all [S] BitOrAll, BitOr, bitor_all [$($param: $tparam),*] $obj);
+		impl_all!(@all [S] BitXorAll, BitXor, bitxor_all [$($param: $tparam),*] $obj);
 		impl_all!(@all [] ShiftRaisingAll, ShiftRaising, shift_raising_all [$($param: $tparam),*] $obj);
 		impl_all!(@all_nofunc [Bi] PushAll, Push [$($param: $tparam),*] $obj);
 		impl_all!(@all_nofunc [Bi] PushAfterMsbAll, PushAfterMsb [$($param: $tparam),*] $obj);
