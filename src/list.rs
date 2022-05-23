@@ -297,6 +297,27 @@ pub trait BitOrFold: RecList {
 	fn bitor_fold(self) -> Self::Output;
 }
 
+/// Fold the [`RecList`] applying [`BitXor`].
+///
+/// ```
+/// # use typebitset::FromNum;
+/// # use typebitset::list::BitXorFold;
+/// let _: FromNum<0b1010> = <
+/// 	<
+/// 		FromNum<0b1010> as BitXorFold
+/// 	>::Output as Default
+/// >::default();
+/// let _: FromNum<0b1010> = <
+/// 	<
+/// 		(FromNum<0b1000>,FromNum<0b0010>) as BitXorFold
+/// 	>::Output as Default
+/// >::default();
+/// ```
+pub trait BitXorFold: RecList {
+	type Output: Value;
+	fn bitxor_fold(self) -> Self::Output;
+}
+
 /// A [`RecList`], consisted of bits.
 ///
 /// As differented from [`Value`] itself, it is legal that [`Bit0`] exists in
@@ -468,6 +489,7 @@ macro_rules! impl_all {
 		impl_all!(@all_nofunc [Si] ReplaceOnesAll, ReplaceOnes [$($param: $tparam),*] $obj);
 		impl_all!(@fold BitAndFold, BitAnd, bitand_fold [$($param: $tparam),*] $obj);
 		impl_all!(@fold BitOrFold, BitOr, bitor_fold [$($param: $tparam),*] $obj);
+		impl_all!(@fold BitXorFold, BitXor, bitxor_fold [$($param: $tparam),*] $obj);
 	};
 }
 
