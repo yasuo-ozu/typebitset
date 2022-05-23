@@ -16,6 +16,9 @@ use core::ops::{BitAnd, BitOr, BitXor};
 /// - with `LEN = 3`: `(FromNum<789>, (FromNum<456>, FromNum<123>))`
 pub trait RecList: Copy + Clone + Default + PartialEq + Debug + Hash {
 	const LEN: usize;
+	fn len() -> usize {
+		Self::LEN
+	}
 }
 
 /// Implemented on lists whose items are equal.
@@ -35,6 +38,9 @@ pub trait RecList: Copy + Clone + Default + PartialEq + Debug + Hash {
 /// ```
 pub trait SameList: RecList {
 	type Item: Value;
+	fn item(self) -> Self::Item {
+		Default::default()
+	}
 }
 
 /// Implemented on lists which has the same number of items of `S`.
@@ -49,7 +55,7 @@ pub trait SameList: RecList {
 /// check2::<(FromNum<4>, FromNum<5>)>();
 /// check3::<(FromNum<4>, (FromNum<5>, FromNum<6>))>();
 /// ```
-pub trait LengthSame<S: ?Sized>: RecList {}
+pub trait LengthSame<S>: RecList {}
 
 /// Implemented on [`RecList`], all of the items are [`Positive`].
 ///
@@ -134,7 +140,9 @@ impl<B: Bit, V: Positive, A: RecList> PositiveAny for (Cons<B, V>, A) {}
 /// ```
 pub trait BitAndAll<S>: RecList {
 	type Output: LengthSame<Self>;
-	fn bitand_all(self, _: S) -> Self::Output;
+	fn bitand_all(self, _: &S) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`BitOr`] to the all items in the list.
@@ -150,7 +158,9 @@ pub trait BitAndAll<S>: RecList {
 /// ```
 pub trait BitOrAll<S>: RecList {
 	type Output: LengthSame<Self>;
-	fn bitor_all(self, _: S) -> Self::Output;
+	fn bitor_all(self, _: &S) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`BitXor`] to the all items in the list.
@@ -166,7 +176,9 @@ pub trait BitOrAll<S>: RecList {
 /// ```
 pub trait BitXorAll<S>: RecList {
 	type Output: LengthSame<Self>;
-	fn bitxor_all(self, _: S) -> Self::Output;
+	fn bitxor_all(self, _: &S) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`ShiftRaising`] to the all items in the list.
@@ -182,7 +194,9 @@ pub trait BitXorAll<S>: RecList {
 /// ```
 pub trait ShiftRaisingAll: RecList {
 	type Output: LengthSame<Self>;
-	fn shift_raising_all(self) -> Self::Output;
+	fn shift_raising_all(self) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`ShiftLowering`] to the all items in the list.
@@ -209,7 +223,9 @@ pub trait ShiftLoweringAll: RecList {
 	/// ) as ShiftLoweringAll>::Lsb as Default>::default();
 	/// ```
 	type Lsb: LengthSame<Self> + BitList;
-	fn shift_lowering_all(self) -> Self::Output;
+	fn shift_lowering_all(self) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`Push`] to the all items in the list.
@@ -225,6 +241,9 @@ pub trait ShiftLoweringAll: RecList {
 /// ```
 pub trait PushAll<B>: RecList {
 	type Output: LengthSame<Self>;
+	fn push_all(self, _: &B) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`PushAfterMsb`] to the all items in the list.
@@ -240,6 +259,9 @@ pub trait PushAll<B>: RecList {
 /// ```
 pub trait PushAfterMsbAll<B>: RecList {
 	type Output: LengthSame<Self>;
+	fn push_after_msb_all(self, _: &B) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Apply [`PushAfterMsb`] to the all items in the list.
@@ -255,6 +277,9 @@ pub trait PushAfterMsbAll<B>: RecList {
 /// ```
 pub trait ReplaceOnesAll<S>: RecList {
 	type Output: LengthSame<Self>;
+	fn replace_ones_all(self, _: &S) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Fold the [`RecList`] applying [`BitAnd`].
@@ -273,7 +298,9 @@ pub trait ReplaceOnesAll<S>: RecList {
 /// ```
 pub trait BitAndFold: RecList {
 	type Output: Value;
-	fn bitand_fold(self) -> Self::Output;
+	fn bitand_fold(self) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Fold the [`RecList`] applying [`BitOr`].
@@ -294,7 +321,9 @@ pub trait BitAndFold: RecList {
 /// ```
 pub trait BitOrFold: RecList {
 	type Output: Value;
-	fn bitor_fold(self) -> Self::Output;
+	fn bitor_fold(self) -> Self::Output {
+		Default::default()
+	}
 }
 
 /// Fold the [`RecList`] applying [`BitXor`].
@@ -315,7 +344,20 @@ pub trait BitOrFold: RecList {
 /// ```
 pub trait BitXorFold: RecList {
 	type Output: Value;
-	fn bitxor_fold(self) -> Self::Output;
+	fn bitxor_fold(self) -> Self::Output {
+		Default::default()
+	}
+}
+
+pub trait Compare: RecList {
+	type MAX: Value;
+	type MIN: Value;
+	fn max(&self) -> Self::MAX {
+		Default::default()
+	}
+	fn min(&self) -> Self::MIN {
+		Default::default()
+	}
 }
 
 /// A [`RecList`], consisted of bits.
@@ -372,30 +414,7 @@ impl<B: Bit, B0: Bit, V0: Positive> Normalize for (B, Cons<B0, V0>) {
 }
 
 macro_rules! impl_all {
-	(@all [$($param0:ident),*] $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
-		impl<$($param0,)*$($param: $tparam),*> $trait<$($param0),*> for $obj
-		where
-			$obj: $inner_trait<$($param0),*>,
-			<$obj as $inner_trait<$($param0),*>>::Output: LengthSame<$obj> + Default,
-		{
-			type Output = <$obj as $inner_trait<$($param0),*>>::Output;
-			fn $func(self$(, _: $param0)*) -> Self::Output {
-				Default::default()
-			}
-		}
-		impl<$($param0,)*$($param: $tparam,)* A> $trait<$($param0),*> for ($obj, A)
-		where
-			$obj: $inner_trait<$($param0,)*>,
-			A: $trait<$($param0),*>,
-			(<$obj as $inner_trait<$($param0),*>>::Output, <A as $trait<$($param0),*>>::Output): LengthSame<($obj, A)> + Default,
-		{
-			type Output = (<$obj as $inner_trait<$($param0),*>>::Output, <A as $trait<$($param0),*>>::Output);
-			fn $func(self$(, _: $param0)*) -> Self::Output {
-				Default::default()
-			}
-		}
-	};
-	(@all_nofunc [$($param0:ident),*] $trait:ident, $inner_trait:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
+	(@all [$($param0:ident),*] $trait:ident, $inner_trait:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param0,)*$($param: $tparam),*> $trait<$($param0),*> for $obj
 		where
 			$obj: $inner_trait<$($param0),*>,
@@ -412,13 +431,10 @@ macro_rules! impl_all {
 			type Output = (<$obj as $inner_trait<$($param0),*>>::Output, <A as $trait<$($param0),*>>::Output);
 		}
 	};
-	(@fold $trait:ident, $inner_trait:ident, $func:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
+	(@fold $trait:ident, $inner_trait:ident [$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param: $tparam),*> $trait for $obj
 		{
 			type Output = $obj;
-			fn $func(self) -> Self::Output {
-				Default::default()
-			}
 		}
 		impl<$($param: $tparam,)* A> $trait for ($obj, A)
 		where
@@ -427,9 +443,6 @@ macro_rules! impl_all {
 			<$obj as $inner_trait<<A as $trait>::Output>>::Output: Value,
 		{
 			type Output = <$obj as $inner_trait<<A as $trait>::Output>>::Output;
-			fn $func(self) -> Self::Output {
-				Default::default()
-			}
 		}
 	};
 	([$($param:ident : $tparam:ident),*] $obj:ty ) => {
@@ -480,16 +493,16 @@ macro_rules! impl_all {
 			}
 		}
 
-		impl_all!(@all [S] BitAndAll, BitAnd, bitand_all [$($param: $tparam),*] $obj);
-		impl_all!(@all [S] BitOrAll, BitOr, bitor_all [$($param: $tparam),*] $obj);
-		impl_all!(@all [S] BitXorAll, BitXor, bitxor_all [$($param: $tparam),*] $obj);
-		impl_all!(@all [] ShiftRaisingAll, ShiftRaising, shift_raising_all [$($param: $tparam),*] $obj);
-		impl_all!(@all_nofunc [Bi] PushAll, Push [$($param: $tparam),*] $obj);
-		impl_all!(@all_nofunc [Bi] PushAfterMsbAll, PushAfterMsb [$($param: $tparam),*] $obj);
-		impl_all!(@all_nofunc [Si] ReplaceOnesAll, ReplaceOnes [$($param: $tparam),*] $obj);
-		impl_all!(@fold BitAndFold, BitAnd, bitand_fold [$($param: $tparam),*] $obj);
-		impl_all!(@fold BitOrFold, BitOr, bitor_fold [$($param: $tparam),*] $obj);
-		impl_all!(@fold BitXorFold, BitXor, bitxor_fold [$($param: $tparam),*] $obj);
+		impl_all!(@all [S] BitAndAll, BitAnd [$($param: $tparam),*] $obj);
+		impl_all!(@all [S] BitOrAll, BitOr [$($param: $tparam),*] $obj);
+		impl_all!(@all [S] BitXorAll, BitXor [$($param: $tparam),*] $obj);
+		impl_all!(@all [] ShiftRaisingAll, ShiftRaising [$($param: $tparam),*] $obj);
+		impl_all!(@all [Bi] PushAll, Push [$($param: $tparam),*] $obj);
+		impl_all!(@all [Bi] PushAfterMsbAll, PushAfterMsb [$($param: $tparam),*] $obj);
+		impl_all!(@all [Si] ReplaceOnesAll, ReplaceOnes [$($param: $tparam),*] $obj);
+		impl_all!(@fold BitAndFold, BitAnd [$($param: $tparam),*] $obj);
+		impl_all!(@fold BitOrFold, BitOr [$($param: $tparam),*] $obj);
+		impl_all!(@fold BitXorFold, BitXor [$($param: $tparam),*] $obj);
 	};
 }
 
