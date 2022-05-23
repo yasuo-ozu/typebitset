@@ -340,6 +340,52 @@ pub trait Compare: RecList {
 	}
 }
 
+/// Generate a transpose of given [`RecList`].
+///
+/// ```
+/// # use typebitset::{FromNum, from_num, list::Transpose,Bit0,Bit1};
+/// let list = (from_num::<0b101>(), (from_num::<0b111>(), from_num::<0b111>()));
+/// let _: (
+/// 	(Bit1, (Bit1, Bit0)),
+/// 	((Bit0, (Bit1, Bit0)),
+/// 	(Bit1,(Bit1,Bit1)))) = Transpose::transpose(list);
+/// ```
+pub trait Transpose<Acc = ()>: Compare {
+	type Output: LengthSame<<Self as Compare>::MAX>;
+	fn transpose(self) -> Self::Output {
+		Default::default()
+	}
+}
+
+impl<A> Transpose<()> for A
+where
+	A: Transpose<<Self as Compare>::MAX>,
+{
+	type Output = <Self as Transpose<<Self as Compare>::MAX>>::Output;
+}
+
+impl<A: ShiftLoweringAll + Compare> Transpose<Bit1> for A
+where
+	<A as ShiftLoweringAll>::Lsb: LengthSame<<Self as Compare>::MAX>,
+{
+	type Output = <A as ShiftLoweringAll>::Lsb;
+}
+
+impl<B: Bit, S: Positive, A> Transpose<Cons<B, S>> for A
+where
+	A: ShiftLoweringAll + Compare,
+	(
+		<A as ShiftLoweringAll>::Lsb,
+		<<A as ShiftLoweringAll>::Output as Transpose<S>>::Output,
+	): LengthSame<<Self as Compare>::MAX>,
+	<A as ShiftLoweringAll>::Output: Transpose<S>,
+{
+	type Output = (
+		<A as ShiftLoweringAll>::Lsb,
+		<<A as ShiftLoweringAll>::Output as Transpose<S>>::Output,
+	);
+}
+
 /// A [`RecList`], consisted of bits.
 ///
 /// As differented from [`Value`] itself, it is legal that [`Bit0`] exists in
