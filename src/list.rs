@@ -344,46 +344,53 @@ pub trait Compare: RecList {
 ///
 /// ```
 /// # use typebitset::{FromNum, from_num, list::Transpose,Bit0,Bit1};
-/// let list = (from_num::<0b101>(), (from_num::<0b111>(), from_num::<0b111>()));
+/// let list = (from_num::<0b1>(), (from_num::<0b1101>(),
+///       (from_num::<0b110>(), (from_num::<0b101000>(), from_num::<0b11>()))));
 /// let _: (
-/// 	(Bit1, (Bit1, Bit0)),
-/// 	((Bit0, (Bit1, Bit0)),
-/// 	(Bit1,(Bit1,Bit1)))) = Transpose::transpose(list);
+/// 	FromNum<0b10011>, (FromNum<0b10100>, (FromNum<0b110>,
+/// 	(FromNum<0b1010>,(FromNum<0>, FromNum<0b1000>))))) = Transpose::transpose(list);
 /// ```
-pub trait Transpose<Acc = ()>: Compare {
-	type Output: LengthSame<<Self as Compare>::MAX>;
+pub trait Transpose: Compare {
+	type Output: RecList;
 	fn transpose(self) -> Self::Output {
 		Default::default()
 	}
 }
 
-impl<A> Transpose<()> for A
-where
-	A: Transpose<<Self as Compare>::MAX>,
-{
-	type Output = <Self as Transpose<<Self as Compare>::MAX>>::Output;
+impl<T: TransposeImpl<()>> Transpose for T {
+	type Output = T::Output;
 }
 
-impl<A: ShiftLoweringAll + Compare> Transpose<Bit1> for A
-where
-	<A as ShiftLoweringAll>::Lsb: LengthSame<<Self as Compare>::MAX>,
-{
-	type Output = <A as ShiftLoweringAll>::Lsb;
+#[doc(hidden)]
+pub trait TransposeImpl<Acc = ()>: Compare {
+	type Output: RecList;
 }
 
-impl<B: Bit, S: Positive, A> Transpose<Cons<B, S>> for A
+impl<A, TOut> TransposeImpl<()> for A
+where
+	A: TransposeImpl<<Self as Compare>::MAX, Output = TOut>,
+	TOut: RecList,
+{
+	type Output = <Self as TransposeImpl<<Self as Compare>::MAX>>::Output;
+}
+
+impl<A, TVL0, TVL> TransposeImpl<Bit1> for A
+where
+	A: ShiftLoweringAll<Lsb = TVL0> + Compare,
+	TVL0: BitList<Val = TVL>,
+	TVL: RecList,
+{
+	type Output = TVL;
+}
+
+impl<B: Bit, S: Positive, A, TVL, TVH> TransposeImpl<Cons<B, S>> for A
 where
 	A: ShiftLoweringAll + Compare,
-	(
-		<A as ShiftLoweringAll>::Lsb,
-		<<A as ShiftLoweringAll>::Output as Transpose<S>>::Output,
-	): LengthSame<<Self as Compare>::MAX>,
-	<A as ShiftLoweringAll>::Output: Transpose<S>,
+	<A as ShiftLoweringAll>::Output: TransposeImpl<S, Output = TVH>,
+	<A as ShiftLoweringAll>::Lsb: BitList<Val = TVL>,
+	(TVL, TVH): RecList,
 {
-	type Output = (
-		<A as ShiftLoweringAll>::Lsb,
-		<<A as ShiftLoweringAll>::Output as Transpose<S>>::Output,
-	);
+	type Output = (TVL, TVH);
 }
 
 /// A [`RecList`], consisted of bits.
