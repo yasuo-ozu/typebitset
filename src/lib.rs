@@ -2,7 +2,7 @@ use core::fmt;
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
 use core::marker::PhantomData;
-use core::ops::{BitAnd, BitOr};
+use core::ops::{BitAnd, BitOr, BitXor};
 
 pub mod list;
 pub mod rel;
@@ -194,21 +194,17 @@ impl Bit for Bit1 {}
 /// ```
 pub trait ShiftRaising: Value {
 	type Output: Value;
-	fn shift_raising(self) -> Self::Output;
+	fn shift_raising(self) -> Self::Output {
+		<Self::Output as Default>::default()
+	}
 }
 
 impl ShiftRaising for Bit0 {
 	type Output = Bit0;
-	fn shift_raising(self) -> Self::Output {
-		Bit0
-	}
 }
 
 impl ShiftRaising for Bit1 {
 	type Output = Cons<Bit0, Bit1>;
-	fn shift_raising(self) -> Self::Output {
-		Cons(PhantomData)
-	}
 }
 
 impl<B, S> ShiftRaising for Cons<B, S>
@@ -217,9 +213,6 @@ where
 	B: Bit,
 {
 	type Output = Cons<Bit0, Cons<B, S>>;
-	fn shift_raising(self) -> Self::Output {
-		Cons(PhantomData)
-	}
 }
 
 /// Generate right shift of the bitset.
@@ -247,23 +240,19 @@ pub trait ShiftLowering: Value {
 	/// >::Lsb as Default>::default();
 	/// ```
 	type Lsb: Bit;
-	fn shift_lowering(self) -> Self::Output;
+	fn shift_lowering(self) -> Self::Output {
+		<Self::Output as Default>::default()
+	}
 }
 
 impl ShiftLowering for Bit0 {
 	type Output = Bit0;
 	type Lsb = Bit0;
-	fn shift_lowering(self) -> Self::Output {
-		Bit0
-	}
 }
 
 impl ShiftLowering for Bit1 {
 	type Output = Bit0;
 	type Lsb = Bit1;
-	fn shift_lowering(self) -> Self::Output {
-		Bit0
-	}
 }
 
 impl<B, S> ShiftLowering for Cons<B, S>
@@ -273,9 +262,6 @@ where
 {
 	type Output = S;
 	type Lsb = B;
-	fn shift_lowering(self) -> Self::Output {
-		<S as Default>::default()
-	}
 }
 
 /// Make left shift of the bitset and use give bit as the LSB.
@@ -291,6 +277,9 @@ where
 /// ```
 pub trait Push<B>: Value {
 	type Output: Value;
+	fn push(self) -> Self::Output {
+		<Self::Output as Default>::default()
+	}
 }
 
 impl<B: Bit> Push<B> for Bit0 {
@@ -325,6 +314,9 @@ impl<B0: Bit, B: Bit, S: Positive> Push<B0> for Cons<B, S> {
 /// ```
 pub trait ReplaceOnes<S>: Value {
 	type Output: Value;
+	fn replace_ones(self) -> Self::Output {
+		<Self::Output as Default>::default()
+	}
 }
 
 impl<S> ReplaceOnes<S> for Bit0 {
@@ -368,6 +360,9 @@ impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S> + Posit
 /// ```
 pub trait PushAfterMsb<S>: Value {
 	type Output: Value;
+	fn push_after_msb(self) -> Self::Output {
+		<Self::Output as Default>::default()
+	}
 }
 
 impl<S: Value> PushAfterMsb<S> for Bit0 {
@@ -386,7 +381,7 @@ where
 }
 
 macro_rules! impl_binary_op {
-	($($bita:ident, $bitb:ident, $bito_and:ident, $bito_or:ident;)*) => {
+	($($bita:ident, $bitb:ident, $bito_and:ident, $bito_or:ident, $bito_xor:ident;)*) => {
 		$(
 			impl BitAnd<$bita> for $bitb {
 				type Output = $bito_and;
@@ -399,6 +394,13 @@ macro_rules! impl_binary_op {
 				type Output = $bito_or;
 				fn bitor(self, _: $bita) -> Self::Output {
 					$bito_or
+				}
+			}
+
+			impl BitXor<$bita> for $bitb {
+				type Output = $bito_xor;
+				fn bitxor(self, _: $bita) -> Self::Output {
+					$bito_xor
 				}
 			}
 
@@ -444,6 +446,28 @@ macro_rules! impl_binary_op {
 				}
 			}
 
+			impl<Sa> BitXor<Cons<$bita, Sa>> for $bitb
+			where
+				Cons<$bita, Sa>: Value,
+				Sa: Push<$bito_xor>,
+			{
+				type Output = <Sa as Push<$bito_xor>>::Output;
+				fn bitxor(self, _: Cons<$bita, Sa>) -> Self::Output {
+					<Self::Output as Default>::default()
+				}
+			}
+
+			impl<Sb> BitXor<$bita> for Cons<$bitb, Sb>
+			where
+				Cons<$bitb, Sb>: Value,
+				Sb: Push<$bito_xor>,
+			{
+				type Output = <Sb as Push<$bito_xor>>::Output;
+				fn bitxor(self, _: $bita) -> Self::Output {
+					<Self::Output as Default>::default()
+				}
+			}
+
 			impl<Sa, Sb> BitAnd<Cons<$bita, Sa>> for Cons<$bitb, Sb>
 			where
 				Cons<$bita, Sa>: Value,
@@ -469,16 +493,29 @@ macro_rules! impl_binary_op {
 					<Self::Output as Default>::default()
 				}
 			}
+
+			impl<Sa, Sb> BitXor<Cons<$bita, Sa>> for Cons<$bitb, Sb>
+			where
+				Cons<$bita, Sa>: Value,
+				Cons<$bitb, Sb>: Value,
+				Sb: BitXor<Sa>,
+				<Sb as BitXor<Sa>>::Output: Push<$bito_xor>,
+			{
+				type Output = <<Sb as BitXor<Sa>>::Output as Push<$bito_xor>>::Output;
+				fn bitxor(self, _rhs: Cons<$bita, Sa>) -> Self::Output {
+					<Self::Output as Default>::default()
+				}
+			}
 		)*
 	}
 }
 
 impl_binary_op! {
-	// Lhs, Rhs, And, Or
-	Bit0, Bit0, Bit0, Bit0;
-	Bit1, Bit0, Bit0, Bit1;
-	Bit0, Bit1, Bit0, Bit1;
-	Bit1, Bit1, Bit1, Bit1;
+	// Lhs, Rhs, And, Or, Xor
+	Bit0, Bit0, Bit0, Bit0, Bit0;
+	Bit1, Bit0, Bit0, Bit1, Bit1;
+	Bit0, Bit1, Bit0, Bit1, Bit1;
+	Bit1, Bit1, Bit1, Bit1, Bit0;
 }
 
 #[doc(hidden)]
@@ -606,10 +643,9 @@ pub(crate) mod test {
 
 	macro_rules! test_and_or {
 		(@run $a: expr, $b: expr) => {
-			let _: FromNum<{ $a & $b }> =
-				<<FromNum<{ $a }> as BitAnd<FromNum<{$b}>>>::Output as Default>::default();
-			let _: FromNum<{ $a | $b }> =
-				<<FromNum<{ $a }> as BitOr<FromNum<{$b}>>>::Output as Default>::default();
+			let _: <FromNum<{$a}> as BitAnd<FromNum<{$b}>>>::Output = from_num::<{$a & $b}>();
+			let _: <FromNum<{$a}> as BitOr<FromNum<{$b}>>>::Output = from_num::<{$a | $b}>();
+			let _: <FromNum<{$a}> as BitXor<FromNum<{$b}>>>::Output = from_num::<{$a ^ $b}>();
 		};
 		(@ [$($ys: expr),*] [$($zs: expr),*]) => {
 			test_and_or!(@run 0usize $(+ $ys)*, 0usize $(+ $zs)*);
