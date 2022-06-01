@@ -16,6 +16,7 @@ use core::ops::{BitAnd, BitOr, BitXor};
 /// - with `LEN = 3`: `(FromNum<789>, (FromNum<456>, FromNum<123>))`
 pub trait RecList: Copy + Clone + Default + PartialEq + Debug + Hash {
 	const LEN: usize;
+	const VALUES: Self;
 	fn len() -> usize {
 		Self::LEN
 	}
@@ -24,17 +25,15 @@ pub trait RecList: Copy + Clone + Default + PartialEq + Debug + Hash {
 /// Implemented on lists whose items are equal.
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::SameList;
+/// # use typebitset::{Value, FromNum};
+/// # use typebitset::list::{RecList, SameList};
 /// fn check<T: SameList>() {}
 /// check::<FromNum<4>>();
 /// check::<(FromNum<4>, FromNum<4>)>();
 /// check::<(FromNum<4>, (FromNum<4>, FromNum<4>))>();
 /// let _: FromNum<4> = <
-/// 	<
-/// 		(FromNum<4>, (FromNum<4>, FromNum<4>)) as SameList
-/// 	>::Item as Default
-/// >::default();
+/// 	(FromNum<4>, (FromNum<4>, FromNum<4>)) as SameList
+/// >::Item::VALUES;
 /// ```
 pub trait SameList: RecList {
 	type Item: Value;
@@ -131,12 +130,10 @@ impl<B: Bit, V: Positive, A: RecList> PositiveAny for (Cons<B, V>, A) {}
 ///
 /// ```
 /// # use typebitset::FromNum;
-/// # use typebitset::list::BitAndAll;
+/// # use typebitset::list::{RecList, BitAndAll};
 /// let _: (FromNum<0b10>, FromNum<0b101>) = <
-/// 	<
-/// 		(FromNum<0b10>,FromNum<0b101>) as BitAndAll<FromNum<0b111>>
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b10>,FromNum<0b101>) as BitAndAll<FromNum<0b111>>
+/// >::Output::VALUES;
 /// ```
 pub trait BitAndAll<S>: RecList {
 	type Output: LengthSame<Self>;
@@ -148,13 +145,11 @@ pub trait BitAndAll<S>: RecList {
 /// Apply [`BitOr`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::BitOrAll;
+/// # use typebitset::{Value,FromNum};
+/// # use typebitset::list::{RecList, BitOrAll};
 /// let _: (FromNum<0b11>, FromNum<0b101>) = <
-/// 	<
-/// 		(FromNum<0b10>,FromNum<0b100>) as BitOrAll<FromNum<1>>
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b10>,FromNum<0b100>) as BitOrAll<FromNum<1>>
+/// >::Output::VALUES;
 /// ```
 pub trait BitOrAll<S>: RecList {
 	type Output: LengthSame<Self>;
@@ -166,13 +161,11 @@ pub trait BitOrAll<S>: RecList {
 /// Apply [`BitXor`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::BitXorAll;
+/// # use typebitset::{Value, FromNum};
+/// # use typebitset::list::{RecList, BitXorAll};
 /// let _: (FromNum<0b10>, FromNum<0b101>) = <
-/// 	<
-/// 		(FromNum<0b11>,FromNum<0b100>) as BitXorAll<FromNum<1>>
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b11>,FromNum<0b100>) as BitXorAll<FromNum<1>>
+/// >::Output::VALUES;
 /// ```
 pub trait BitXorAll<S>: RecList {
 	type Output: LengthSame<Self>;
@@ -184,13 +177,11 @@ pub trait BitXorAll<S>: RecList {
 /// Apply [`ShiftRaising`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::ShiftRaisingAll;
+/// # use typebitset::{Value,FromNum};
+/// # use typebitset::list::{RecList, ShiftRaisingAll};
 /// let _: (FromNum<0b10>, FromNum<0b100>) = <
-/// 	<
-/// 		(FromNum<0b1>,FromNum<0b10>) as ShiftRaisingAll
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1>,FromNum<0b10>) as ShiftRaisingAll
+/// >::Output::VALUES;
 /// ```
 pub trait ShiftRaisingAll: RecList {
 	type Output: LengthSame<Self>;
@@ -202,13 +193,11 @@ pub trait ShiftRaisingAll: RecList {
 /// Apply [`ShiftLowering`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::ShiftLoweringAll;
+/// # use typebitset::{Value,FromNum};
+/// # use typebitset::list::{RecList, ShiftLoweringAll};
 /// let _: (FromNum<0b1>, FromNum<0b10>) = <
-/// 	<
-/// 		(FromNum<0b11>,FromNum<0b101>) as ShiftLoweringAll
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b11>,FromNum<0b101>) as ShiftLoweringAll
+/// >::Output::VALUES;
 /// ```
 pub trait ShiftLoweringAll: RecList {
 	type Output: LengthSame<Self>;
@@ -217,10 +206,10 @@ pub trait ShiftLoweringAll: RecList {
 	///
 	/// ```
 	/// # use typebitset::{Bit0, Bit1, Value, FromNum};
-	/// # use typebitset::list::ShiftLoweringAll;
-	/// let _: (Bit0, (Bit1, Bit1)) = <<(
+	/// # use typebitset::list::{RecList, ShiftLoweringAll};
+	/// let _: (Bit0, (Bit1, Bit1)) = <(
 	/// 	FromNum<0b0>, (FromNum<0b1>, (FromNum<0b11>))
-	/// ) as ShiftLoweringAll>::Lsb as Default>::default();
+	/// ) as ShiftLoweringAll>::Lsb::VALUES;
 	/// ```
 	type Lsb: LengthSame<Self> + BitList;
 	fn shift_lowering_all(self) -> Self::Output {
@@ -231,13 +220,11 @@ pub trait ShiftLoweringAll: RecList {
 /// Apply [`Push`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::{FromNum, Bit1};
-/// # use typebitset::list::PushAll;
+/// # use typebitset::{Value, FromNum, Bit1};
+/// # use typebitset::list::{RecList, PushAll};
 /// let _: (FromNum<0b11>, FromNum<0b101>) = <
-/// 	<
-/// 		(FromNum<0b1>,FromNum<0b10>) as PushAll<Bit1>
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1>,FromNum<0b10>) as PushAll<Bit1>
+/// >::Output::VALUES;
 /// ```
 pub trait PushAll<B>: RecList {
 	type Output: LengthSame<Self>;
@@ -249,13 +236,11 @@ pub trait PushAll<B>: RecList {
 /// Apply [`PushAfterMsb`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::{FromNum, Bit1};
-/// # use typebitset::list::PushAfterMsbAll;
+/// # use typebitset::{Value, FromNum, Bit1};
+/// # use typebitset::list::{RecList, PushAfterMsbAll};
 /// let _: (FromNum<0b11>, FromNum<0b110>) = <
-/// 	<
-/// 		(FromNum<0b1>,FromNum<0b10>) as PushAfterMsbAll<Bit1>
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1>,FromNum<0b10>) as PushAfterMsbAll<Bit1>
+/// >::Output::VALUES;
 /// ```
 pub trait PushAfterMsbAll<B>: RecList {
 	type Output: LengthSame<Self>;
@@ -267,13 +252,11 @@ pub trait PushAfterMsbAll<B>: RecList {
 /// Apply [`PushAfterMsb`] to the all items in the list.
 ///
 /// ```
-/// # use typebitset::{FromNum, Bit1};
-/// # use typebitset::list::PushAfterMsbAll;
+/// # use typebitset::{Value, FromNum, Bit1};
+/// # use typebitset::list::{RecList, PushAfterMsbAll};
 /// let _: (FromNum<0b11>, FromNum<0b110>) = <
-/// 	<
-/// 		(FromNum<0b1>,FromNum<0b10>) as PushAfterMsbAll<Bit1>
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1>,FromNum<0b10>) as PushAfterMsbAll<Bit1>
+/// >::Output::VALUES;
 /// ```
 pub trait ReplaceOnesAll<S>: RecList {
 	type Output: LengthSame<Self>;
@@ -285,16 +268,13 @@ pub trait ReplaceOnesAll<S>: RecList {
 /// Fold the [`RecList`] applying [`BitAnd`].
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::BitAndFold;
+/// # use typebitset::{Value, FromNum};
+/// # use typebitset::list::{RecList, BitAndFold};
+/// let _: FromNum<0b1010> =
+/// 	<FromNum<0b1010> as BitAndFold>::Output::VALUES;
 /// let _: FromNum<0b1010> = <
-/// 	<FromNum<0b1010> as BitAndFold>::Output as Default
-/// >::default();
-/// let _: FromNum<0b1010> = <
-/// 	<
-/// 		(FromNum<0b1011>,FromNum<0b1110>) as BitAndFold
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1011>,FromNum<0b1110>) as BitAndFold
+/// >::Output::VALUES;
 /// ```
 pub trait BitAndFold: RecList {
 	type Output: Value;
@@ -306,18 +286,14 @@ pub trait BitAndFold: RecList {
 /// Fold the [`RecList`] applying [`BitOr`].
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::BitOrFold;
+/// # use typebitset::{Value, FromNum};
+/// # use typebitset::list::{RecList, BitOrFold};
 /// let _: FromNum<0b1010> = <
-/// 	<
-/// 		FromNum<0b1010> as BitOrFold
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b1010> as BitOrFold
+/// >::Output::VALUES;
 /// let _: FromNum<0b1010> = <
-/// 	<
-/// 		(FromNum<0b1000>,FromNum<0b0010>) as BitOrFold
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1000>,FromNum<0b0010>) as BitOrFold
+/// >::Output::VALUES;
 /// ```
 pub trait BitOrFold: RecList {
 	type Output: Value;
@@ -329,18 +305,14 @@ pub trait BitOrFold: RecList {
 /// Fold the [`RecList`] applying [`BitXor`].
 ///
 /// ```
-/// # use typebitset::FromNum;
-/// # use typebitset::list::BitXorFold;
+/// # use typebitset::{Value, FromNum};
+/// # use typebitset::list::{RecList, BitXorFold};
 /// let _: FromNum<0b1010> = <
-/// 	<
-/// 		FromNum<0b1010> as BitXorFold
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b1010> as BitXorFold
+/// >::Output::VALUES;
 /// let _: FromNum<0b1010> = <
-/// 	<
-/// 		(FromNum<0b1000>,FromNum<0b0010>) as BitXorFold
-/// 	>::Output as Default
-/// >::default();
+/// 	(FromNum<0b1000>,FromNum<0b0010>) as BitXorFold
+/// >::Output::VALUES;
 /// ```
 pub trait BitXorFold: RecList {
 	type Output: Value;
@@ -456,9 +428,11 @@ macro_rules! impl_all {
 	([$($param:ident : $tparam:ident),*] $obj:ty ) => {
 		impl<$($param: $tparam),*> RecList for $obj {
 			const LEN: usize = 1;
+			const VALUES: Self = <Self as Value>::VALUE;
 		}
 		impl<A: RecList$(,$param: $tparam)*> RecList for ($obj, A) {
 			const LEN: usize = <A as RecList>::LEN + 1;
+			const VALUES: Self = (<$obj as Value>::VALUE, A::VALUES);
 		}
 
 		impl<$($param: $tparam),*> SameList for $obj

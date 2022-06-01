@@ -7,6 +7,11 @@ use core::ops::{BitAnd, BitOr, BitXor};
 pub mod list;
 pub mod rel;
 
+pub mod prelude {
+	pub use crate::list::RecList;
+	pub use crate::Value;
+}
+
 /// Implementation of bitset. See [`Value`]
 #[derive(Copy, Clone, Default, Debug, Hash)]
 pub struct Cons<B, S>(PhantomData<(B, S)>);
@@ -108,13 +113,16 @@ impl Display for Bit1 {
 /// Operators [`BitAnd`] and [`BitOr`] are supported.
 ///
 /// ```
-/// # use typebitset::{FromNum, Bit0, Bit1};
-/// let _: FromNum<0b101> = <FromNum<0b100> as Default>::default() | Bit1;
-/// let _: FromNum<0b1> = <FromNum<0b111> as Default>::default() & Bit1;
+/// # use typebitset::{Value, FromNum, Bit0, Bit1};
+/// let _: FromNum<0b101> = FromNum::<0b100>::VALUE | Bit1;
+/// let _: FromNum<0b1> = FromNum::<0b111>::VALUE & Bit1;
 /// ```
 pub trait Value: Copy + Clone + Default + PartialEq + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
+
+	/// Convert type to value. Synonym of `<T as Default>::default()`.
+	const VALUE: Self;
 
 	/// Convert the [`Value`] val to `usize`.
 	fn as_usize(&self) -> usize {
@@ -124,14 +132,17 @@ pub trait Value: Copy + Clone + Default + PartialEq + Debug + Hash {
 
 impl Value for Bit0 {
 	const N: usize = 0;
+	const VALUE: Bit0 = Bit0;
 }
 
 impl Value for Bit1 {
 	const N: usize = 1;
+	const VALUE: Bit1 = Bit1;
 }
 
 impl<B: Bit, S: Positive> Value for Cons<B, S> {
 	const N: usize = <S as Value>::N * 2 + <B as Value>::N;
+	const VALUE: Self = Cons(PhantomData);
 }
 
 macro_rules! value_from {
@@ -184,18 +195,18 @@ impl Bit for Bit1 {}
 /// Generate left shift of the bitset.
 ///
 /// ```
-/// # use typebitset::{FromNum, ShiftRaising};
-/// let a: FromNum<0b1010> = <
+/// # use typebitset::{Value, FromNum, ShiftRaising};
+/// let a: FromNum<0b1010> =
 /// 	<
 /// 		FromNum<0b101> as ShiftRaising
-/// 	>::Output as Default
-/// >::default();
+/// 	>::Output::VALUE;
+///
 /// assert_eq!(a.as_usize(), 0b1010);
 /// ```
 pub trait ShiftRaising: Value {
 	type Output: Value;
 	fn shift_raising(self) -> Self::Output {
-		<Self::Output as Default>::default()
+		Self::Output::VALUE
 	}
 }
 
@@ -218,12 +229,10 @@ where
 /// Generate right shift of the bitset.
 ///
 /// ```
-/// # use typebitset::{FromNum, ShiftLowering};
+/// # use typebitset::{Value, FromNum, ShiftLowering};
 /// let a: FromNum<0b101> = <
-/// 	<
-/// 		FromNum<0b1010> as ShiftLowering
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b1010> as ShiftLowering
+/// >::Output::VALUE;
 /// assert_eq!(a.as_usize(), 0b101);
 /// ```
 pub trait ShiftLowering: Value {
@@ -231,17 +240,17 @@ pub trait ShiftLowering: Value {
 	/// The LSB, dropped from `Self`.
 	///
 	/// ```
-	/// # use typebitset::{Bit0,Bit1,FromNum, ShiftLowering};
-	/// let _: Bit0 = <<
+	/// # use typebitset::{Value, Bit0,Bit1,FromNum, ShiftLowering};
+	/// let _: Bit0 = <
 	/// 	FromNum<0b1010> as ShiftLowering
-	/// >::Lsb as Default>::default();
-	/// let _: Bit1 = <<
+	/// >::Lsb::VALUE;
+	/// let _: Bit1 = <
 	/// 	FromNum<0b101> as ShiftLowering
-	/// >::Lsb as Default>::default();
+	/// >::Lsb::VALUE;
 	/// ```
 	type Lsb: Bit;
 	fn shift_lowering(self) -> Self::Output {
-		<Self::Output as Default>::default()
+		Self::Output::VALUE
 	}
 }
 
@@ -267,18 +276,16 @@ where
 /// Make left shift of the bitset and use give bit as the LSB.
 ///
 /// ```
-/// # use typebitset::{FromNum, ShiftRaising};
+/// # use typebitset::{Value, FromNum, ShiftRaising};
 /// let a: FromNum<0b1010> = <
-/// 	<
-/// 		FromNum<0b101> as ShiftRaising
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b101> as ShiftRaising
+/// >::Output::VALUE;
 /// assert_eq!(a.as_usize(), 0b1010);
 /// ```
 pub trait Push<B>: Value {
 	type Output: Value;
 	fn push(self) -> Self::Output {
-		<Self::Output as Default>::default()
+		Self::Output::VALUE
 	}
 }
 
@@ -298,24 +305,20 @@ impl<B0: Bit, B: Bit, S: Positive> Push<B0> for Cons<B, S> {
 /// S should be [`Positive`].
 ///
 /// ```
-/// # use typebitset::{FromNum, ReplaceOnes};
+/// # use typebitset::{Value, FromNum, ReplaceOnes};
 /// let a: FromNum<0b1101100> = <
-/// 	<
-/// 		FromNum<0b10100> as ReplaceOnes<FromNum<0b11>>
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b10100> as ReplaceOnes<FromNum<0b11>>
+/// >::Output::VALUE;
 /// let b: FromNum<0b11100> = <
-/// 	<
-/// 		FromNum<0b100> as ReplaceOnes<FromNum<0b111>>
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b100> as ReplaceOnes<FromNum<0b111>>
+/// >::Output::VALUE;
 /// assert_eq!(a.as_usize(), 0b1101100);
 /// assert_eq!(b.as_usize(), 0b11100);
 /// ```
 pub trait ReplaceOnes<S>: Value {
 	type Output: Value;
 	fn replace_ones(self) -> Self::Output {
-		<Self::Output as Default>::default()
+		Self::Output::VALUE
 	}
 }
 
@@ -343,25 +346,21 @@ impl<S: PushAfterMsb<<S0 as ReplaceOnes<S>>::Output>, S0: ReplaceOnes<S> + Posit
 /// Concat bitset S after the MSB of Self.
 ///
 /// ```
-/// # use typebitset::{FromNum, PushAfterMsb};
+/// # use typebitset::{Value, FromNum, PushAfterMsb};
 /// let a: FromNum<0b1101> = <
-/// 	<
-/// 		FromNum<0b0> as PushAfterMsb<FromNum<0b1101>>
-/// 	>::Output as Default
-/// >::default();
+/// 	FromNum<0b0> as PushAfterMsb<FromNum<0b1101>>
+/// >::Output::VALUE;
 /// let b: FromNum<0b1101100> = <
-/// 	<
-/// 		FromNum<0b100> as PushAfterMsb<FromNum<0b1101>>
-/// 	>::Output as Default
-/// >::default();
-/// assert_eq!(<FromNum<0b1101> as Default>::default().as_usize(), 0b1101);
+/// 	FromNum<0b100> as PushAfterMsb<FromNum<0b1101>>
+/// >::Output::VALUE;
+/// assert_eq!(FromNum::<0b1101>::N, 0b1101);
 /// assert_eq!(a.as_usize(), 0b1101);
 /// assert_eq!(b.as_usize(), 0b1101100);
 /// ```
 pub trait PushAfterMsb<S>: Value {
 	type Output: Value;
 	fn push_after_msb(self) -> Self::Output {
-		<Self::Output as Default>::default()
+		Self::Output::VALUE
 	}
 }
 
@@ -431,7 +430,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <Sa as Push<$bito_or>>::Output;
 				fn bitor(self, _: Cons<$bita, Sa>) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 
@@ -442,7 +441,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <Sb as Push<$bito_or>>::Output;
 				fn bitor(self, _: $bita) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 
@@ -453,7 +452,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <Sa as Push<$bito_xor>>::Output;
 				fn bitxor(self, _: Cons<$bita, Sa>) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 
@@ -464,7 +463,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <Sb as Push<$bito_xor>>::Output;
 				fn bitxor(self, _: $bita) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 
@@ -477,7 +476,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <<Sb as BitAnd<Sa>>::Output as Push<$bito_and>>::Output;
 				fn bitand(self, _rhs: Cons<$bita, Sa>) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 
@@ -490,7 +489,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <<Sb as BitOr<Sa>>::Output as Push<$bito_or>>::Output;
 				fn bitor(self, _rhs: Cons<$bita, Sa>) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 
@@ -503,7 +502,7 @@ macro_rules! impl_binary_op {
 			{
 				type Output = <<Sb as BitXor<Sa>>::Output as Push<$bito_xor>>::Output;
 				fn bitxor(self, _rhs: Cons<$bita, Sa>) -> Self::Output {
-					<Self::Output as Default>::default()
+					Self::Output::VALUE
 				}
 			}
 		)*
@@ -531,12 +530,12 @@ pub trait FromNumImpl<const N: usize> {
 /// To generate an object instead of type, use [`from_num()`].
 ///
 /// ```
-/// # use typebitset::{Bit0, Bit1, Cons,FromNum};
+/// # use typebitset::{Value, Bit0, Bit1, Cons,FromNum};
 /// let _: FromNum<0> = Bit0; // for minimum N
 /// let _: FromNum<1> = Bit1;
-/// let _: FromNum<2> = <Cons<Bit0, Bit1> as Default>::default();
-/// let _: FromNum<3> = <Cons<Bit1, Bit1> as Default>::default();
-/// let _: FromNum<4> = <Cons<Bit0, Cons<Bit0, Bit1>> as Default>::default();
+/// let _: FromNum<2> = Cons::<Bit0, Bit1>::VALUE;
+/// let _: FromNum<3> = Cons::<Bit1, Bit1>::VALUE;
+/// let _: FromNum<4> = Cons::<Bit0, Cons<Bit0, Bit1>>::VALUE;
 /// let _: FromNum<{2_usize.pow(7) - 1}>; // for maximum N
 /// ```
 /// ```compile_fail
