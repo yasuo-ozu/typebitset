@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use core::fmt;
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
@@ -13,7 +15,7 @@ pub mod prelude {
 }
 
 /// Implementation of bitset. See [`Value`]
-#[derive(Copy, Clone, Default, Debug, Hash)]
+#[derive(Copy, Clone, Default, Hash)]
 pub struct Cons<B, S>(PhantomData<(B, S)>);
 
 macro_rules! impl_cmp_op {
@@ -44,37 +46,46 @@ impl_cmp_op! {
 	[B0: Bit, B1: Bit, S0: Positive, S1: Positive] Cons<B0, S0>, Cons<B1, S1>;
 }
 
-impl<B: Display + Default, S: Display + Default> Display for Cons<B, S> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(
-			f,
-			"{}{}",
-			<S as Default>::default(),
-			<B as Default>::default()
-		)
+macro_rules! impl_disp_dbg {
+	($($([$($p:tt),*])? $t:path;)*) => {
+		$(
+			impl$(<$($p),*>)? Eq for $t where Self: PartialEq<Self> {}
+			impl$(<$($p),*>)? Display for $t
+			where
+				Self: Value,
+			{
+				fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+					<usize as Display>::fmt(&<Self as Value>::N, f)
+				}
+			}
+			impl$(<$($p),*>)? Debug for $t
+			where
+				Self: Value,
+			{
+				fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+					<usize as Debug>::fmt(&<Self as Value>::N, f)
+				}
+			}
+		)*
 	}
+}
+
+impl_disp_dbg! {
+	Bit0;
+	Bit1;
+	[B, S] Cons<B, S>;
 }
 
 /// Represents a bitset represented as zero.
 /// Only if a bitset equals to [`Bit0`], the bitset means zero.
 /// See [`Value`] for details.
-#[derive(Copy, Clone, Default, Eq, Debug, Hash)]
+#[derive(Copy, Clone, Default, Hash)]
 pub struct Bit0;
-impl Display for Bit0 {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "0")
-	}
-}
 
 /// Represents a bitset represented as one.
 /// See [`Value`] for details.
-#[derive(Copy, Clone, Default, Eq, Debug, Hash)]
+#[derive(Copy, Clone, Default, Hash)]
 pub struct Bit1;
-impl Display for Bit1 {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "1")
-	}
-}
 
 /// The main trait represents a bitset.
 ///
@@ -117,7 +128,7 @@ impl Display for Bit1 {
 /// let _: FromNum<0b101> = FromNum::<0b100>::VALUE | Bit1;
 /// let _: FromNum<0b1> = FromNum::<0b111>::VALUE & Bit1;
 /// ```
-pub trait Value: Copy + Clone + Default + PartialEq + Debug + Hash {
+pub trait Value: Copy + Clone + Default + PartialEq + Eq + Display + Debug + Hash {
 	/// Integer representation of the bitset.
 	const N: usize;
 
