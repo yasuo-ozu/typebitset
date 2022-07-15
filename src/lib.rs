@@ -1,4 +1,3 @@
-#![recursion_limit = "65536"]
 use core::fmt;
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
